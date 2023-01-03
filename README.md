@@ -2,7 +2,8 @@
 
 ## Introduction
 
-placeholder
+[Theta sketches](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html) are a probabilistic data structure intended to approximate the cardinality of all common set operations,
+e.g. union, intersection, ..
 
 ## Usage in SingleStore
 
