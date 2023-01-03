@@ -14,6 +14,8 @@ extension.wasm: gen
  		--target=wasm32-unknown-wasi \
  		-mexec-model=reactor \
  		-I. \
+ 		-Icommon \
+ 		-Itheta-sketch \
  		-o extension.wasm \
  		extension.cpp extension_impl.cpp
 

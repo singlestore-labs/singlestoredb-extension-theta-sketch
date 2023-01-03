@@ -1,8 +1,42 @@
-# SingleStoreDB extension template in C++
+# Theta sketches in SingleStoreDB
 
-![C++ Build](https://github.com/singlestore-labs/singlestoredb-extension-cpp-template/actions/workflows/cpp-docker.yml/badge.svg) ![Release](https://github.com/singlestore-labs/singlestoredb-extension-cpp-template/actions/workflows/release.yml/badge.svg)
+## Introduction
 
-This repository provides a template repository for developing Wasm UDFs and TVFs for [SingleStoreDB](https://www.singlestore.com/) written in C++. It contains a [VS Code](https://www.singlestore.com/) development container to help users get bootstrapped quickly, but can be used in any IDE that supports simple [MakeFiles](https://www.gnu.org/software/make/manual/make.html#Introduction).
+placeholder
+
+## Usage in SingleStore
+
+The library can import the following [UDFs](https://placeholder):
+* `sketch_init`: initializes an empty sketch
+* `sketch_update`: updates the sketch with a new sample
+* `sketch_union`: merges two sketches through a `union` operation
+* `sketch_intersect`: merges two sketches through an `intersect` operation
+* `sketch_anotb`: merges two sketches through a `NOT IN` operation
+* `sketch_finalize`: finalizes a sketch
+* `sketch_estimate`: returns the estimated number of unique samples in the sketch
+* `sketch_print`: prints sketch details
+
+in addition the aggregate function `theta_sketch` is created as follows:
+```sql
+CREATE AGGREGATE theta_sketch(int NOT NULL)
+RETURNS BLOB NOT NULL
+WITH STATE BLOB NOT NULL
+INITIALIZE WITH sketch_init
+ITERATE WITH sketch_update
+MERGE WITH sketch_union
+TERMINATE WITH sketch_finalize;
+```
+
+### Examples
+
+An example set of `MySQL` statements can be found in `test.sql`:
+```sql
+create table IF NOT EXISTS sketch_input (id1 int, id2 int);
+insert into sketch_input values
+    (1, 2), (2, 4), (3, 6), (4, 8), (5, 10), (6, 12), (7, 14), (8, 16), (9, 18), (10, 20);
+
+select sketch_estimate(sketch_union(theta_sketch(id1), theta_sketch(id2))) from sketch_input;
+```
 
 ## Tools
 

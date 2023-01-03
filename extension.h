@@ -19,17 +19,16 @@ extern "C"
   typedef struct {
     uint8_t *ptr;
     size_t len;
-  } extension_list_u8_t;
-  void extension_list_u8_free(extension_list_u8_t *ptr);
-  typedef struct {
-    extension_list_u8_t buffer;
-    int32_t idx;
   } extension_state_t;
   void extension_state_free(extension_state_t *ptr);
-  void extension_greet(extension_string_t *name, extension_string_t *ret0);
-  int32_t extension_answer_to_life(void);
-  int32_t extension_set_state(extension_state_t *s);
-  void extension_get_state(extension_state_t *ret0);
+  void extension_sketch_init(extension_state_t *ret0);
+  void extension_sketch_update(extension_state_t *s, int32_t input, extension_state_t *ret0);
+  void extension_sketch_union(extension_state_t *left, extension_state_t *right, extension_state_t *ret0);
+  void extension_sketch_intersect(extension_state_t *left, extension_state_t *right, extension_state_t *ret0);
+  void extension_sketch_anotb(extension_state_t *left, extension_state_t *right, extension_state_t *ret0);
+  void extension_sketch_finalize(extension_state_t *s, extension_state_t *ret0);
+  double extension_sketch_estimate(extension_state_t *s);
+  void extension_sketch_print(extension_state_t *s, extension_string_t *ret0);
   #ifdef __cplusplus
 }
 #endif

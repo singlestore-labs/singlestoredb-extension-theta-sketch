@@ -1,8 +1,25 @@
-record state {
-  buffer: list<u8>,
-  idx: s32
-}
-greet: func(name: string) -> string
-answer-to-life: func() -> s32
-set-state: func(s: state) -> s32
-get-state: func() -> state
+type state = list<u8>
+
+// Initializes an empty theta sketch state
+sketch-init: func() -> state
+
+// Adds a value to the theta sketch
+sketch-update: func(s: state, input: s32) -> state
+
+// Merges two sketches using a union operation
+sketch-union: func(left: state, right: state) -> state
+
+// Merges two sketches using an intersect operation
+sketch-intersect: func(left: state, right: state) -> state
+
+// Merges two sketches using a A^B operation
+sketch-anotb: func(left: state, right: state) -> state
+
+// Finalizes the state [ =NOP ]
+sketch-finalize: func(s: state) -> state
+
+// Computes the theta value of the sketch
+sketch-estimate: func(s: state) -> float64
+
+// Prints information regarding the sketch
+sketch-print: func(s: state) -> string

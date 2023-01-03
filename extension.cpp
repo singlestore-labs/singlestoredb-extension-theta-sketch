@@ -40,46 +40,87 @@ void extension_string_free(extension_string_t *ret) {
   ret->ptr = NULL;
   ret->len = 0;
 }
-void extension_list_u8_free(extension_list_u8_t *ptr) {
-  canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
-}
 void extension_state_free(extension_state_t *ptr) {
-  extension_list_u8_free(&ptr->buffer);
+  canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
 }
 
 __attribute__((aligned(4)))
-static uint8_t RET_AREA[12];
-__attribute__((export_name("greet")))
-int32_t __wasm_export_extension_greet(int32_t arg, int32_t arg0) {
-  extension_string_t arg1 = (extension_string_t) { (char*)(arg), (size_t)(arg0) };
-  extension_string_t ret;
-  extension_greet(&arg1, &ret);
+static uint8_t RET_AREA[8];
+__attribute__((export_name("sketch-init")))
+int32_t __wasm_export_extension_sketch_init(void) {
+  extension_state_t ret;
+  extension_sketch_init(&ret);
   int32_t ptr = (int32_t) &RET_AREA;
   *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
   *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
   return ptr;
 }
-__attribute__((export_name("answer-to-life")))
-int32_t __wasm_export_extension_answer_to_life(void) {
-  int32_t ret = extension_answer_to_life();
-  return ret;
-}
-__attribute__((export_name("set-state")))
-int32_t __wasm_export_extension_set_state(int32_t arg, int32_t arg0, int32_t arg1) {
-  extension_state_t arg2 = (extension_state_t) {
-    (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) },
-    arg1,
-  };
-  int32_t ret = extension_set_state(&arg2);
-  return ret;
-}
-__attribute__((export_name("get-state")))
-int32_t __wasm_export_extension_get_state(void) {
+__attribute__((export_name("sketch-update")))
+int32_t __wasm_export_extension_sketch_update(int32_t arg, int32_t arg0, int32_t arg1) {
+  extension_state_t arg2 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
   extension_state_t ret;
-  extension_get_state(&ret);
+  extension_sketch_update(&arg2, arg1, &ret);
   int32_t ptr = (int32_t) &RET_AREA;
-  *((int32_t*)(ptr + 4)) = (int32_t) ((ret).buffer).len;
-  *((int32_t*)(ptr + 0)) = (int32_t) ((ret).buffer).ptr;
-  *((int32_t*)(ptr + 8)) = (ret).idx;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-union")))
+int32_t __wasm_export_extension_sketch_union(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
+  extension_state_t arg3 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_state_t arg4 = (extension_state_t) { (uint8_t*)(arg1), (size_t)(arg2) };
+  extension_state_t ret;
+  extension_sketch_union(&arg3, &arg4, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-intersect")))
+int32_t __wasm_export_extension_sketch_intersect(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
+  extension_state_t arg3 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_state_t arg4 = (extension_state_t) { (uint8_t*)(arg1), (size_t)(arg2) };
+  extension_state_t ret;
+  extension_sketch_intersect(&arg3, &arg4, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-anotb")))
+int32_t __wasm_export_extension_sketch_anotb(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
+  extension_state_t arg3 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_state_t arg4 = (extension_state_t) { (uint8_t*)(arg1), (size_t)(arg2) };
+  extension_state_t ret;
+  extension_sketch_anotb(&arg3, &arg4, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-finalize")))
+int32_t __wasm_export_extension_sketch_finalize(int32_t arg, int32_t arg0) {
+  extension_state_t arg1 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_state_t ret;
+  extension_sketch_finalize(&arg1, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-estimate")))
+double __wasm_export_extension_sketch_estimate(int32_t arg, int32_t arg0) {
+  extension_state_t arg1 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  double ret = extension_sketch_estimate(&arg1);
+  return ret;
+}
+__attribute__((export_name("sketch-print")))
+int32_t __wasm_export_extension_sketch_print(int32_t arg, int32_t arg0) {
+  extension_state_t arg1 = (extension_state_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_string_t ret;
+  extension_sketch_print(&arg1, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
   return ptr;
 }
