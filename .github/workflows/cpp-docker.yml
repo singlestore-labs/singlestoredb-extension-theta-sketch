@@ -1,0 +1,23 @@
+name: C++ Build
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+# Cancel any in-flight jobs for the same PR/branch so there's only one active at a time
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v3
+    - name: Build docker image
+      run: docker build . -t singlestoredb-extension-cpp -f Dockerfile
+    - name: Build WASM binary
+      run: docker run -v $PWD:/repo -w/repo singlestoredb-extension-cpp /bin/bash -c make
