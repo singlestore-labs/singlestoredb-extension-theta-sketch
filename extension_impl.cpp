@@ -10,24 +10,29 @@
 using namespace datasketches;
 
 /// Size of the header
-const size_t PREFIX_LEN = 0;
+/// Header contains
+const size_t PREFIX_LEN = 4;
 
 struct WasmState {
-    extension_state_t* previous_state;
+    uint32_t generation;
     update_theta_sketch* sketch;
 
-    WasmState(): previous_state(nullptr), sketch(nullptr) {}
+    WasmState(): generation(0), sketch(nullptr) {}
 };
 
 /// Per-partition state retained between `update` calls
 static WasmState WASM_STATE = WasmState();
 
+inline uint32_t generation_of(extension_state_t* state) {
+    return (state && state->ptr) ? *reinterpret_cast<uint32_t*>(state->ptr) : 0;
+}
+
 template<typename Sketch>
-void serialize_state(extension_state_t *state, Sketch sketch, bool needs_reload = false) {
+void serialize_state(extension_state_t *state, Sketch sketch) {
     auto* sk = new std::vector<uint8_t>(sketch.serialize(PREFIX_LEN));
     state->ptr = reinterpret_cast<unsigned char *>(sk->data());
     state->len = sk->size();
-    WASM_STATE.previous_state = state;
+    *reinterpret_cast<uint32_t*>(state->ptr) = WASM_STATE.generation;
 }
 
 compact_theta_sketch deserialize_state(extension_state_t* state) {
@@ -35,15 +40,15 @@ compact_theta_sketch deserialize_state(extension_state_t* state) {
 }
 
 update_theta_sketch* try_get_state(extension_state_t* state) {
-    if (state != WASM_STATE.previous_state || WASM_STATE.sketch == nullptr) {
+    const auto generation = generation_of(state);
+    if (generation != WASM_STATE.generation || WASM_STATE.sketch == nullptr) {
         // This is a non sequential continuation, so we'll need to refresh the state
         WASM_STATE.sketch = new update_theta_sketch(update_theta_sketch::builder().build());
         auto compact = deserialize_state(state);
         for(const uint64_t item : compact) {
             WASM_STATE.sketch->update_hash(item);
         }
-    } else if (WASM_STATE.previous_state == nullptr) {
-        WASM_STATE.sketch = new update_theta_sketch(update_theta_sketch::builder().build());
+        WASM_STATE.generation = generation;
     }
 
     return WASM_STATE.sketch;
@@ -51,6 +56,7 @@ update_theta_sketch* try_get_state(extension_state_t* state) {
 
 void extension_sketch_init(extension_state_t *state) {
     WASM_STATE.sketch = new update_theta_sketch(update_theta_sketch::builder().build());
+    WASM_STATE.generation = 0;
     serialize_state(state, WASM_STATE.sketch->compact());
     DEBUG_LOG("[INIT] Ptr=%s Size=%zu\n", state->ptr, state->len);
 }
@@ -70,9 +76,9 @@ void extension_sketch_union(extension_state_t *left, extension_state_t *right, e
     auto sketch = theta_union::builder().build();
     sketch.update(left_compact_sketch);
     sketch.update(right_compact_sketch);
-    serialize_state(state, sketch.get_result(), true);
+    WASM_STATE.generation = std::max(generation_of(left), generation_of(right)) + 1;
+    serialize_state(state, sketch.get_result());
 
-    WASM_STATE.previous_state = nullptr;
     extension_state_free(left);
     extension_state_free(right);
     DEBUG_LOG("[UNION] Ptr=%s Size=%zu\n", state->ptr, state->len);
@@ -84,9 +90,9 @@ void extension_sketch_intersect(extension_state_t *left, extension_state_t *righ
     auto sketch = theta_intersection();
     sketch.update(left_compact_sketch);
     sketch.update(right_compact_sketch);
-    serialize_state(state, sketch.get_result(), true);
+    WASM_STATE.generation = std::max(generation_of(left), generation_of(right)) + 1;
+    serialize_state(state, sketch.get_result());
 
-    WASM_STATE.previous_state = nullptr;
     extension_state_free(left);
     extension_state_free(right);
     DEBUG_LOG("[INTERSECT] Ptr=%s Size=%zu\n", state->ptr, state->len);
@@ -97,9 +103,9 @@ void extension_sketch_anotb(extension_state_t *left, extension_state_t *right, e
     const auto right_compact_sketch = deserialize_state(right);
     theta_a_not_b sketch;
     auto result = sketch.compute(left_compact_sketch, right_compact_sketch);
-    serialize_state(state, result, true);
+    WASM_STATE.generation = std::max(generation_of(left), generation_of(right)) + 1;
+    serialize_state(state, result);
 
-    WASM_STATE.previous_state = nullptr;
     extension_state_free(left);
     extension_state_free(right);
     DEBUG_LOG("[ANOTB] Ptr=%s Size=%zu\n", state->ptr, state->len);
