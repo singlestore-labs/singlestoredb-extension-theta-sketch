@@ -2,10 +2,8 @@
 #define _WASM_LOG_H_
 
 #ifndef UNUSED
-template <typename ...Args>
-void UNUSED(Args&& ...args)
-{
-    (void)(sizeof...(args));
+template <typename... Args> void UNUSED(Args &&...args) {
+  (void)(sizeof...(args));
 }
 
 #endif
