@@ -26,7 +26,7 @@ extension_state_t join_sketches(extension_state_t left, extension_state_t right,
       auto combined = f(left_compact, right_compact);
       left_sketch = update_theta_sketch::builder().build();
       for (const uint64_t val : combined) {
-        left_sketch.update(val);
+        left_sketch.update_hash(val);
       }
     });
   });
