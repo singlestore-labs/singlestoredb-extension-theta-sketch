@@ -4,8 +4,6 @@
 #include "theta_intersection.hpp"
 #include "theta_sketch.hpp"
 #include "theta_union.hpp"
-#include <cstdio>
-#include <string>
 
 using namespace datasketches;
 
