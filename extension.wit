@@ -1,10 +1,10 @@
-type state = list<u8>
+type state = s32
 
 // Initializes an empty theta sketch state
 sketch-init: func() -> state
 
 // Adds a value to the theta sketch
-sketch-update: func(s: state, input: s32) -> state
+sketch-update: func(state: state, input: s32) -> state
 
 // Merges two sketches using a union operation
 sketch-union: func(left: state, right: state) -> state
@@ -15,11 +15,14 @@ sketch-intersect: func(left: state, right: state) -> state
 // Merges two sketches using a A^B operation
 sketch-anotb: func(left: state, right: state) -> state
 
-// Finalizes the state [ =NOP ]
-sketch-finalize: func(s: state) -> state
+// Serializes the state
+sketch-serialize: func(s: state) -> list<u8>
+
+// Deserializes the state
+sketch-deserialize: func(data: list<u8>) -> state
+
+// Destroys the state
+sketch-destroy: func(s: state) -> s32
 
 // Computes the theta value of the sketch
-sketch-estimate: func(s: state) -> float64
-
-// Prints information regarding the sketch
-sketch-print: func(s: state) -> string
+sketch-estimate: func(data: list<u8>) -> float64
