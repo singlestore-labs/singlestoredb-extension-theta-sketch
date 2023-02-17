@@ -5,6 +5,7 @@ debug: DBGFLAGS = -g
 debug: extension.wasm
 
 .PHONY: release
+release: DBGFLAGS = -O3
 release: extension.wasm
 
 extension.wasm: gen
