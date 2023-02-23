@@ -60,11 +60,6 @@ __wasm_export_extension_sketch_deserialize(int32_t arg, int32_t arg0) {
   extension_state_t ret = extension_sketch_deserialize(&arg1);
   return ret;
 }
-__attribute__((export_name("sketch-destroy"))) int32_t
-__wasm_export_extension_sketch_destroy(int32_t arg) {
-  int32_t ret = extension_sketch_destroy(arg);
-  return ret;
-}
 __attribute__((export_name("sketch-estimate"))) double
 __wasm_export_extension_sketch_estimate(int32_t arg, int32_t arg0) {
   extension_list_u8_t arg1 =

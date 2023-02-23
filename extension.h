@@ -23,7 +23,6 @@ extension_state_t extension_sketch_anotb(extension_state_t left,
                                          extension_state_t right);
 void extension_sketch_serialize(extension_state_t s, extension_list_u8_t *ret0);
 extension_state_t extension_sketch_deserialize(extension_list_u8_t *data);
-int32_t extension_sketch_destroy(extension_state_t s);
 double extension_sketch_estimate(extension_list_u8_t *data);
 #ifdef __cplusplus
 }

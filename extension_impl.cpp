@@ -7,6 +7,16 @@
 
 using namespace datasketches;
 
+//////////////////////////////////////////////////
+// Aux functions
+//////////////////////////////////////////////////
+
+void sketch_destroy(extension_state_t handle) {
+  DEBUG_LOG("[DESTROY] handle=%d\n", handle);
+  auto *sketch = reinterpret_cast<update_theta_sketch *>(handle);
+  delete sketch;
+}
+
 template <typename F>
 extension_state_t with_sketch(extension_state_t handle, F &&f) {
   update_theta_sketch *sketch = reinterpret_cast<update_theta_sketch *>(handle);
@@ -17,7 +27,7 @@ extension_state_t with_sketch(extension_state_t handle, F &&f) {
 template <typename F>
 extension_state_t join_sketches(extension_state_t left, extension_state_t right,
                                 F &&f) {
-  return with_sketch(left, [&](update_theta_sketch &left_sketch) {
+  auto joined = with_sketch(left, [&](update_theta_sketch &left_sketch) {
     with_sketch(right, [&](update_theta_sketch &right_sketch) {
       auto left_compact = left_sketch.compact();
       auto right_compact = right_sketch.compact();
@@ -28,7 +38,13 @@ extension_state_t join_sketches(extension_state_t left, extension_state_t right,
       }
     });
   });
+  sketch_destroy(right);
+  return joined;
 }
+
+//////////////////////////////////////////////////
+// Extension functions
+//////////////////////////////////////////////////
 
 extension_state_t extension_sketch_init() {
   auto *sketch =
@@ -84,31 +100,28 @@ void extension_sketch_serialize(extension_state_t handle,
     auto *sk = new std::vector<uint8_t>(compact.serialize());
     data->ptr = reinterpret_cast<unsigned char *>(sk->data());
     data->len = sk->size();
+    DEBUG_LOG("[SERIALIZE] data=%p len=%zu\n", data->ptr, data->len);
   });
+  sketch_destroy(handle);
 }
 
 extension_state_t extension_sketch_deserialize(extension_list_u8_t *data) {
   auto compact_sketch = compact_theta_sketch::deserialize(data->ptr, data->len);
+  extension_list_u8_free(data);
   auto *sketch =
       new update_theta_sketch(update_theta_sketch::builder().build());
   for (const uint64_t val : compact_sketch) {
-    sketch->update(val);
+    sketch->update_hash(val);
   }
   const auto handle = reinterpret_cast<extension_state_t>(sketch);
   DEBUG_LOG("[DESERIALIZE] handle=%d\n", handle);
   return handle;
 }
 
-int32_t extension_sketch_destroy(extension_state_t handle) {
-  DEBUG_LOG("[DESTROY] handle=%d\n", handle);
-  auto *sketch = reinterpret_cast<update_theta_sketch *>(handle);
-  delete sketch;
-  return 0;
-}
-
 double extension_sketch_estimate(extension_list_u8_t *data) {
   const auto estimate =
       wrapped_compact_theta_sketch::wrap(data->ptr, data->len).get_estimate();
+  extension_list_u8_free(data);
   DEBUG_LOG("[ESTIMATE] estimate=%f\n", estimate);
   return estimate;
 }

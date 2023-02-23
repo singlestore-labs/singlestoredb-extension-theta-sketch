@@ -21,8 +21,5 @@ sketch-serialize: func(s: state) -> list<u8>
 // Deserializes the state
 sketch-deserialize: func(data: list<u8>) -> state
 
-// Destroys the state
-sketch-destroy: func(s: state) -> s32
-
 // Computes the theta value of the sketch
 sketch-estimate: func(data: list<u8>) -> float64
