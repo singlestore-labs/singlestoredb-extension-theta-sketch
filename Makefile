@@ -18,7 +18,7 @@ extension.wasm: gen
  		-Icommon \
  		-Itheta-sketch \
  		-o extension.wasm \
- 		extension.cpp extension_impl.cpp
+ 		extension.cpp extension_impl_handle.cpp extension_impl_value.cpp
 
 .PHONY: gen
 gen:

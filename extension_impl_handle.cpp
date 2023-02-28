@@ -46,7 +46,7 @@ extension_state_t join_sketches(extension_state_t left, extension_state_t right,
 // Extension functions
 //////////////////////////////////////////////////
 
-extension_state_t extension_sketch_init() {
+extension_state_t extension_sketch_init_handle() {
   auto *sketch =
       new update_theta_sketch(update_theta_sketch::builder().build());
   extension_state_t handle = reinterpret_cast<extension_state_t>(sketch);
@@ -54,15 +54,15 @@ extension_state_t extension_sketch_init() {
   return handle;
 }
 
-extension_state_t extension_sketch_update(extension_state_t handle,
-                                          int32_t input) {
+extension_state_t extension_sketch_update_handle(extension_state_t handle,
+                                                 int32_t input) {
   DEBUG_LOG("[UPDATE] Updating handle=%d val=%d\n", handle, input);
   return with_sketch(
       handle, [input](update_theta_sketch &sketch) { sketch.update(input); });
 }
 
-extension_state_t extension_sketch_union(extension_state_t left,
-                                         extension_state_t right) {
+extension_state_t extension_sketch_union_handle(extension_state_t left,
+                                                extension_state_t right) {
   DEBUG_LOG("[UNION] left=%d right=%d\n", left, right);
   return join_sketches(left, right, [](auto &left_sketch, auto &right_sketch) {
     auto sketch = theta_union::builder().build();
@@ -72,8 +72,8 @@ extension_state_t extension_sketch_union(extension_state_t left,
   });
 }
 
-extension_state_t extension_sketch_intersect(extension_state_t left,
-                                             extension_state_t right) {
+extension_state_t extension_sketch_intersect_handle(extension_state_t left,
+                                                    extension_state_t right) {
   DEBUG_LOG("[INTERSECT] left=%d right=%d\n", left, right);
   return join_sketches(left, right, [](auto &left_sketch, auto &right_sketch) {
     auto sketch = theta_intersection();
@@ -83,8 +83,8 @@ extension_state_t extension_sketch_intersect(extension_state_t left,
   });
 }
 
-extension_state_t extension_sketch_anotb(extension_state_t left,
-                                         extension_state_t right) {
+extension_state_t extension_sketch_anotb_handle(extension_state_t left,
+                                                extension_state_t right) {
   DEBUG_LOG("[ANOTB] left=%d right=%d\n", left, right);
   return join_sketches(left, right, [](auto &left_sketch, auto &right_sketch) {
     theta_a_not_b sketch;
@@ -92,8 +92,8 @@ extension_state_t extension_sketch_anotb(extension_state_t left,
   });
 }
 
-void extension_sketch_serialize(extension_state_t handle,
-                                extension_list_u8_t *data) {
+void extension_sketch_serialize_handle(extension_state_t handle,
+                                       extension_list_u8_t *data) {
   DEBUG_LOG("[SERIALIZE] handle=%d\n", handle);
   with_sketch(handle, [&](update_theta_sketch &sketch) {
     auto compact = sketch.compact();
@@ -105,7 +105,8 @@ void extension_sketch_serialize(extension_state_t handle,
   sketch_destroy(handle);
 }
 
-extension_state_t extension_sketch_deserialize(extension_list_u8_t *data) {
+extension_state_t
+extension_sketch_deserialize_handle(extension_list_u8_t *data) {
   auto compact_sketch = compact_theta_sketch::deserialize(data->ptr, data->len);
   extension_list_u8_free(data);
   auto *sketch =
@@ -118,7 +119,7 @@ extension_state_t extension_sketch_deserialize(extension_list_u8_t *data) {
   return handle;
 }
 
-double extension_sketch_estimate(extension_list_u8_t *data) {
+double extension_sketch_estimate_handle(extension_list_u8_t *data) {
   const auto estimate =
       wrapped_compact_theta_sketch::wrap(data->ptr, data->len).get_estimate();
   extension_list_u8_free(data);

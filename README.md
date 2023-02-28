@@ -15,17 +15,21 @@ The library can import the following [UDFs](https://placeholder):
 * `sketch_anotb`: merges two sketches through a `NOT IN` operation
 * `sketch_finalize`: finalizes a sketch
 * `sketch_estimate`: returns the estimated number of unique samples in the sketch
-* `sketch_print`: prints sketch details
+* `sketch_serialize`: serializes a sketch into its compact binary form
+* `sketch_deserialize`: deserializes a sketch from its compact binary form 
 
 in addition the aggregate function `theta_sketch` is created as follows:
 ```sql
 CREATE AGGREGATE theta_sketch(int NOT NULL)
 RETURNS BLOB NOT NULL
-WITH STATE BLOB NOT NULL
+WITH STATE HANDLE
+AS WASM FROM LOCAL INFILE "extension.wasm"
 INITIALIZE WITH sketch_init
 ITERATE WITH sketch_update
 MERGE WITH sketch_union
-TERMINATE WITH sketch_finalize;
+TERMINATE WITH sketch_finalize
+SERIALIZE WITH sketch_serialize
+DESERIALIZE WITH sketch_deserialize;
 ```
 
 ### Examples

@@ -1,25 +1,45 @@
 type state = s32
 
+/***************************/
+/*     Handle functions    */
+/***************************/
+
 // Initializes an empty theta sketch state
-sketch-init: func() -> state
+sketch-init-handle: func() -> state
 
 // Adds a value to the theta sketch
-sketch-update: func(state: state, input: s32) -> state
+sketch-update-handle: func(state: state, input: s32) -> state
 
 // Merges two sketches using a union operation
-sketch-union: func(left: state, right: state) -> state
+sketch-union-handle: func(left: state, right: state) -> state
 
 // Merges two sketches using an intersect operation
-sketch-intersect: func(left: state, right: state) -> state
+sketch-intersect-handle: func(left: state, right: state) -> state
 
 // Merges two sketches using a A^B operation
-sketch-anotb: func(left: state, right: state) -> state
+sketch-anotb-handle: func(left: state, right: state) -> state
 
 // Serializes the state
-sketch-serialize: func(s: state) -> list<u8>
+sketch-serialize-handle: func(s: state) -> list<u8>
 
 // Deserializes the state
-sketch-deserialize: func(data: list<u8>) -> state
+sketch-deserialize-handle: func(data: list<u8>) -> state
+
+// Computes the theta value of the sketch
+sketch-estimate-handle: func(data: list<u8>) -> float64
+
+/***************************/
+/*     Value functions     */
+/***************************/
+
+// Merges two sketches using a union operation
+sketch-union: func(left: list<u8>, right: list<u8>) -> list<u8>
+
+// Merges two sketches using an intersect operation
+sketch-intersect: func(left: list<u8>, right: list<u8>) -> list<u8>
+
+// Merges two sketches using a A^B operation
+sketch-anotb: func(left: list<u8>, right: list<u8>) -> list<u8>
 
 // Computes the theta value of the sketch
 sketch-estimate: func(data: list<u8>) -> float64
