@@ -29,3 +29,5 @@ RUN wget -q https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-$
 ENV LANG C.UTF-8
 
 ENV PATH /opt/wasi-sdk/bin:$PATH
+ENV CC /opt/wasi-sdk/bin/clang
+ENV CXX /opt/wasi-sdk/bin/clang++

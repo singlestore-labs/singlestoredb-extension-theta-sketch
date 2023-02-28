@@ -9,7 +9,7 @@ release: DBGFLAGS = -O3
 release: extension.wasm
 
 extension.wasm: gen
-	clang++ \
+	$(CXX) \
 		${DBGFLAGS} \
 		-fno-exceptions \
  		--target=wasm32-unknown-wasi \
