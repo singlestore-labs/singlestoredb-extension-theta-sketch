@@ -68,7 +68,8 @@ extension_state_t extension_sketch_union_handle(extension_state_t left,
     auto sketch = theta_union::builder().build();
     sketch.update(left_sketch);
     sketch.update(right_sketch);
-    return sketch.get_result();
+    auto res = sketch.get_result();
+    return res;
   });
 }
 
@@ -107,6 +108,7 @@ void extension_sketch_serialize_handle(extension_state_t handle,
 
 extension_state_t
 extension_sketch_deserialize_handle(extension_list_u8_t *data) {
+  DEBUG_LOG("[DESERIALIZE] ptr=%p len=%zu\n", data->ptr, data->len);
   auto compact_sketch = compact_theta_sketch::deserialize(data->ptr, data->len);
   extension_list_u8_free(data);
   auto *sketch =

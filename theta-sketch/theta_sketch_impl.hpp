@@ -279,6 +279,10 @@ entries_(other.get_allocator())
     std::copy(other.begin(), other.end(), std::back_inserter(entries_));
     if (ordered && !other.is_ordered()) std::sort(entries_.begin(), entries_.end());
   }
+  else
+  {
+    DEBUG_LOG("### compact_theta_sketch_alloc::compact_theta_sketch_alloc(Other, bool): other is empty\n");
+  }
 }
 
 template<typename A>

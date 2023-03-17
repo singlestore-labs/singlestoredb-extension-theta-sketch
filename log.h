@@ -8,10 +8,10 @@ template <typename... Args> void UNUSED(Args &&...args) {
 
 #endif
 
-#ifdef DEBUG
+//#ifdef true
 #define DEBUG_LOG(...) printf(__VA_ARGS__)
-#else
-#define DEBUG_LOG(...) UNUSED(__VA_ARGS__)
-#endif
+//#else
+//#define DEBUG_LOG(...) UNUSED(__VA_ARGS__)
+//#endif
 
 #endif // _WASM_LOG_H_

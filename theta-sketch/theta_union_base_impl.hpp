@@ -38,7 +38,10 @@ union_theta_(table_.theta_)
 template<typename EN, typename EK, typename P, typename S, typename CS, typename A>
 template<typename SS>
 void theta_union_base<EN, EK, P, S, CS, A>::update(SS&& sketch) {
-  if (sketch.is_empty()) return;
+  if (sketch.is_empty()) {
+    DEBUG_LOG("### union base is empty = %d\n", sketch.is_empty());
+    return;
+  }
   if (sketch.get_seed_hash() != compute_seed_hash(table_.seed_)) THROW_INVALID_ARG("seed hash mismatch")
   table_.is_empty_ = false;
   if (sketch.get_theta64() < union_theta_) union_theta_ = sketch.get_theta64();
