@@ -105,7 +105,13 @@ extension_state_t extension_sketch_update_handle(extension_state_t handle,
                                                  int32_t input) {
   DEBUG_LOG("[UPDATE] Updating handle=%d val=%d\n", handle, input);
   return with_sketch(
-      handle, [input](SketchState &sketch) { sketch.m_update->update(input); });
+      handle, [input](SketchState &sketch) {
+        if (sketch.m_update == nullptr) {
+          sketch.m_update =
+              new update_theta_sketch(update_theta_sketch::builder().build());
+        }
+        sketch.m_update->update(input);
+      });
 }
 
 extension_state_t extension_sketch_union_handle(extension_state_t left,
