@@ -274,12 +274,6 @@ public:
    */
   void update(const void* data, size_t length);
 
-    /**
-   * Update this sketch with a precalculated hash.
-   * @param hash calculated hash entry
-   */
-  void update_hash(uint64_t hash);
-
   /**
    * Remove retained entries in excess of the nominal size k (if any)
    */

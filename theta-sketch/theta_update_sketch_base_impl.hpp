@@ -171,7 +171,6 @@ auto theta_update_sketch_base<EN, EK, A>::find(EN* entries, uint8_t lg_size, uin
 template<typename EN, typename EK, typename A>
 template<typename Fwd>
 void theta_update_sketch_base<EN, EK, A>::insert(iterator it, Fwd&& entry) {
-  is_empty_ = false;
   new (it) EN(std::forward<Fwd>(entry));
   ++num_entries_;
   if (num_entries_ > get_capacity(lg_cur_size_, lg_nom_size_)) {

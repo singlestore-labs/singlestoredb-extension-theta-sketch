@@ -197,18 +197,13 @@ void update_theta_sketch_alloc<A>::update(const std::string& value) {
 }
 
 template<typename A>
-void update_theta_sketch_alloc<A>::update_hash(const uint64_t hash) {
-    if (hash == 0) return;
-    auto result = table_.find(hash);
-    if (!result.second) {
-        table_.insert(result.first, hash);
-    }
-}
-
-template<typename A>
 void update_theta_sketch_alloc<A>::update(const void* data, size_t length) {
   const uint64_t hash = table_.hash_and_screen(data, length);
-  update_hash(hash);
+  if (hash == 0) return;
+  auto result = table_.find(hash);
+  if (!result.second) {
+      table_.insert(result.first, hash);
+  }
 }
 
 template<typename A>
@@ -278,10 +273,6 @@ entries_(other.get_allocator())
     entries_.reserve(other.get_num_retained());
     std::copy(other.begin(), other.end(), std::back_inserter(entries_));
     if (ordered && !other.is_ordered()) std::sort(entries_.begin(), entries_.end());
-  }
-  else
-  {
-    DEBUG_LOG("### compact_theta_sketch_alloc::compact_theta_sketch_alloc(Other, bool): other is empty\n");
   }
 }
 
