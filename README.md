@@ -7,30 +7,39 @@ e.g. union, intersection, ..
 
 ## Usage in SingleStore
 
-The library can import the following [UDFs](https://placeholder):
-* `sketch_init`: initializes an empty sketch
-* `sketch_update`: updates the sketch with a new sample
-* `sketch_union`: merges two sketches through a `union` operation
-* `sketch_intersect`: merges two sketches through an `intersect` operation
-* `sketch_anotb`: merges two sketches through a `NOT IN` operation
-* `sketch_finalize`: finalizes a sketch
-* `sketch_estimate`: returns the estimated number of unique samples in the sketch
-* `sketch_serialize`: serializes a sketch into its compact binary form
-* `sketch_deserialize`: deserializes a sketch from its compact binary form 
+The library can import the following wasm functions usable with an aggregate function:
+* `sketch_init_handle`: initializes an empty sketch
+* `sketch_update_handle`: updates the sketch with a new sample
+* `sketch_union_handle`: merges two sketches through a `union` operation
+* `sketch_intersect_handle`: merges two sketches through an `intersect` operation
+* `sketch_anotb_handle`: merges two sketches through a `NOT IN` operation
+* `sketch_estimate_handle`: returns the estimated number of unique samples in the sketch
+* `sketch_serialize_handle`: serializes a sketch into its compact binary form
+* `sketch_deserialize_handle`: deserializes a sketch from its compact binary form 
 
-in addition the aggregate function `theta_sketch` is created as follows:
+Note: These functions assume they're called within an aggregate context with `HANDLE` state.
+
+in addition the aggregate function `theta_sketch` can be created as follows:
 ```sql
 CREATE AGGREGATE theta_sketch(int NOT NULL)
 RETURNS BLOB NOT NULL
 WITH STATE HANDLE
 AS WASM FROM LOCAL INFILE "extension.wasm"
-INITIALIZE WITH sketch_init
-ITERATE WITH sketch_update
-MERGE WITH sketch_union
-TERMINATE WITH sketch_finalize
-SERIALIZE WITH sketch_serialize
-DESERIALIZE WITH sketch_deserialize;
+INITIALIZE WITH sketch_init_handle
+ITERATE WITH sketch_update_handle
+MERGE WITH sketch_union_handle
+TERMINATE WITH <sketch_estimate_handle | sketch_serialize_handle>
+SERIALIZE WITH sketch_serialize_handle
+DESERIALIZE WITH sketch_deserialize_handle;
 ```
+
+In addition the following [UDFs](https://docs.singlestore.com/managed-service/en/reference/code-engine---powered-by-wasm.html) are available which operate
+on serialized sketches:
+
+* `sketch_union`: Merges two serialized sketches through a `union` operation
+* `sketch_intersect`: Merges two serialized sketches through an `intersect` operation
+* `sketch_anotb`: Merges two serialized sketches through a `NOT IN` operation
+* `sketch_estimate`: Returns the estimate number of unique samples in the serialized sketch
 
 ### Examples
 
@@ -95,7 +104,16 @@ Alternatively each step can be done individually using the following workflow:
     ```
     Alternatively you can use the `pushwasm` tool to push a single UFD/TVF:
     ```sh
-    pushwasm --tvf --prompt mysql://<my-user>@<my-host>:3306/<my-database> --wit extension.wit extension.wasm greet
+    pushwasm udaf -n theta_sketch --wasm extension.wasm --wit extension.wit --abi canonical --conn 'mysql://<my-user>@<my-host>:3306/<my-database>'
+        --state HANDLE \
+        --type 'int not null' \
+        --arg 'int not null' \
+        --init sketch_init_handle \
+        --iter sketch_update_handle \ 
+        --merge sketch_intersect_handle \ 
+        --terminate sketch_estimate_handle \
+        --serialize sketch_serialize_handle \
+        --deserialize sketch_deserialize_handle
     ```
 
 ## Additional Information
