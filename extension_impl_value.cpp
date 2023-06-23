@@ -32,9 +32,11 @@ void join_sketches(extension_list_u8_t *left, extension_list_u8_t *right, F &&f,
 // Value functions
 //////////////////////////////////////////////////
 
-void extension_sketch_union(extension_list_u8_t *left,
-                            extension_list_u8_t *right,
-                            extension_list_u8_t *data) {
+void extension_theta_sketch_union(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *data)
+{
   DEBUG_LOG("[UNION] left=%p right=%p\n", left->ptr, right->ptr);
   join_sketches(
       left, right,
@@ -47,9 +49,11 @@ void extension_sketch_union(extension_list_u8_t *left,
       *data);
 }
 
-void extension_sketch_intersect(extension_list_u8_t *left,
-                                extension_list_u8_t *right,
-                                extension_list_u8_t *data) {
+void extension_theta_sketch_intersect(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *data)
+{
   DEBUG_LOG("[INTERSECT] left=%p right=%p\n", left->ptr, right->ptr);
   join_sketches(
       left, right,
@@ -62,9 +66,11 @@ void extension_sketch_intersect(extension_list_u8_t *left,
       *data);
 }
 
-void extension_sketch_anotb(extension_list_u8_t *left,
-                            extension_list_u8_t *right,
-                            extension_list_u8_t *data) {
+void extension_theta_sketch_anotb(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *data)
+{
   DEBUG_LOG("[ANOTB] left=%p right=%p\n", left->ptr, right->ptr);
   join_sketches(
       left, right,
@@ -75,9 +81,12 @@ void extension_sketch_anotb(extension_list_u8_t *left,
       *data);
 }
 
-double extension_sketch_estimate(extension_list_u8_t *data) {
+double extension_theta_sketch_estimate(
+    extension_list_u8_t *data)
+{
   const auto estimate = as_sketch(data).get_estimate();
   extension_list_u8_free(data);
   DEBUG_LOG("[ESTIMATE] estimate=%f\n", estimate);
   return estimate;
 }
+

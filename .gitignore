@@ -2,7 +2,7 @@
 *.d
 
 # SQL files
-*.sql
+#*.sql
 
 # Compiled Object files
 *.slo
@@ -33,7 +33,7 @@
 *.exe
 *.out
 *.app
-*.wasm
+#*.wasm
 
 # IDEs
 .vscode
