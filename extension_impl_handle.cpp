@@ -1,3 +1,4 @@
+#include <assert.h>
 #include "extension.h"
 #include "log.h"
 #include "theta_a_not_b.hpp"
@@ -6,6 +7,10 @@
 #include "theta_union.hpp"
 
 using namespace datasketches;
+
+typedef compact_theta_sketch (*merge_compacts_callback)(
+    const compact_theta_sketch& a,
+    const compact_theta_sketch& b);
 
 struct SketchState {
   // The in-progress sketch
@@ -31,7 +36,7 @@ struct SketchState {
     }
   }
 
-  template <typename F> void merge(SketchState &other, F &&merge_compacts) {
+  void merge(SketchState &other, merge_compacts_callback merge_compacts) {
     // Compact both sketches
     this->compact_sketch();
     other.compact_sketch();
@@ -50,6 +55,53 @@ struct SketchState {
     }
   }
 
+  void copymerge(
+    SketchState &left,
+    SketchState &right,
+    merge_compacts_callback merge_compacts)
+  {
+    assert(!m_compact);
+    assert(!m_update);
+
+    // Compact all sketches
+    left.compact_sketch();
+    right.compact_sketch();
+
+    if (!left.m_compact)
+    {
+      if (right.m_compact)
+      {
+        m_compact = new compact_theta_sketch(*right.m_compact);
+      }
+    }
+    else if (!right.m_compact)
+    {
+      if (left.m_compact)
+      {
+        m_compact = new compact_theta_sketch(*left.m_compact);
+      }
+    }
+    else
+    {
+      assert(left.m_compact && right.m_compact);
+      m_compact = new compact_theta_sketch(
+        merge_compacts(*left.m_compact, *right.m_compact));
+    }
+  }
+
+  SketchState* clone() const
+  {
+    auto *res = new SketchState{
+      .m_update = m_update 
+          ? new update_theta_sketch(*m_update)
+          : nullptr,
+      .m_compact = m_compact
+          ? new compact_theta_sketch(*m_compact)
+          : nullptr,
+    };
+    return res;
+  }
+
   ~SketchState() {
     delete m_update;
     delete m_compact;
@@ -59,6 +111,9 @@ struct SketchState {
 //////////////////////////////////////////////////
 // Aux functions
 //////////////////////////////////////////////////
+
+typedef void (*merge_callback)(SketchState& left, SketchState& right);
+typedef void (*copymerge_callback)(SketchState& res, SketchState& left, SketchState& right);
 
 void sketch_destroy(extension_state_t handle) {
   DEBUG_LOG("[DESTROY] handle=%d\n", handle);
@@ -73,9 +128,11 @@ extension_state_t with_sketch(extension_state_t handle, F &&f) {
   return reinterpret_cast<extension_state_t>(sketch);
 }
 
-template <typename F>
-extension_state_t join_sketches(extension_state_t left, extension_state_t right,
-                                F &&f) {
+extension_state_t join_sketches(
+    extension_state_t left,
+    extension_state_t right,
+    merge_callback f)
+{
   auto joined = with_sketch(left, [&](SketchState &left_sketch) {
     with_sketch(right, [&](SketchState &right_sketch) {
       // Updates the left sketch with the state of other sketch
@@ -86,11 +143,30 @@ extension_state_t join_sketches(extension_state_t left, extension_state_t right,
   return joined;
 }
 
+extension_state_t join_sketches_copy(
+    extension_state_t left,
+    extension_state_t right,
+    copymerge_callback f)
+{
+  SketchState* res = new SketchState{
+      .m_update = nullptr,
+      .m_compact = nullptr
+  };
+  with_sketch(left, [&](SketchState &left_sketch) {
+    with_sketch(right, [&](SketchState &right_sketch) {
+      // Updates the first sketch with a merge of the other two sketches.
+      f(*res, left_sketch, right_sketch);
+    });
+  });
+  return reinterpret_cast<extension_state_t>(res);
+}
+
 //////////////////////////////////////////////////
 // Extension functions
 //////////////////////////////////////////////////
 
-extension_state_t extension_sketch_init_handle() {
+extension_state_t extension_theta_sketch_handle_init()
+{
   auto *sketch = new SketchState{
       .m_update =
           new update_theta_sketch(update_theta_sketch::builder().build()),
@@ -101,8 +177,32 @@ extension_state_t extension_sketch_init_handle() {
   return handle;
 }
 
-extension_state_t extension_sketch_update_handle(extension_state_t handle,
-                                                 int32_t input) {
+extension_state_t extension_theta_sketch_handle_clone(
+    extension_state_t handle_src)
+{
+  DEBUG_LOG("[CLONE] Cloning handle=%d\n", handle_src);
+
+  auto *sketch_src = reinterpret_cast<SketchState*>(handle_src);
+  auto *sketch_dst = sketch_src->clone();
+
+  const auto handle_dst = reinterpret_cast<extension_state_t>(sketch_dst);
+  DEBUG_LOG("[CLONE] Cloning new handle=%d\n", handle_dst);
+
+  return handle_dst;
+}
+
+int32_t extension_theta_sketch_handle_destroy(
+    extension_state_t handle)
+{
+  DEBUG_LOG("[DESTROY] Destroying=%d\n", handle);
+  sketch_destroy(handle);
+  return 0;
+}
+
+extension_state_t extension_theta_sketch_handle_update(
+    extension_state_t handle,
+    int32_t input)
+{
   DEBUG_LOG("[UPDATE] Updating handle=%d val=%d\n", handle, input);
   return with_sketch(
       handle, [input](SketchState &sketch) {
@@ -114,47 +214,120 @@ extension_state_t extension_sketch_update_handle(extension_state_t handle,
       });
 }
 
-extension_state_t extension_sketch_union_handle(extension_state_t left,
-                                                extension_state_t right) {
+static compact_theta_sketch union_merge(
+    const compact_theta_sketch& a,
+    const compact_theta_sketch& b)
+{
+    auto combined = theta_union::builder().build();
+    combined.update(a);
+    combined.update(b);
+    return combined.get_result();
+}
+
+extension_state_t extension_theta_sketch_handle_union(
+    extension_state_t left,
+    extension_state_t right)
+{
   DEBUG_LOG("[UNION] left=%d right=%d\n", left, right);
-  return join_sketches(left, right,
-                       [](SketchState &left_sketch, SketchState &right_sketch) {
-                         left_sketch.merge(right_sketch, [](auto &a, auto &b) {
-                           auto combined = theta_union::builder().build();
-                           combined.update(a);
-                           combined.update(b);
-                           return combined.get_result();
-                         });
-                       });
+  return join_sketches(
+    left,
+    right,
+    [](SketchState &left_sketch, SketchState &right_sketch) {
+      left_sketch.merge(right_sketch, union_merge);
+    });
 }
 
-extension_state_t extension_sketch_intersect_handle(extension_state_t left,
-                                                    extension_state_t right) {
+extension_state_t extension_theta_sketch_handle_union_copy(
+    extension_state_t left,
+    extension_state_t right)
+{
+  DEBUG_LOG("[UNION COPY] left=%d right=%d\n", left, right);
+  return join_sketches_copy(
+    left,
+    right,
+    [](SketchState &new_sketch, SketchState &left_sketch, SketchState &right_sketch)
+    {
+      new_sketch.copymerge(left_sketch, right_sketch, union_merge);
+    });
+}
+
+static compact_theta_sketch intersect_merge(
+    const compact_theta_sketch& a,
+    const compact_theta_sketch& b)
+{
+    auto combined = theta_union::builder().build();
+    combined.update(a);
+    combined.update(b);
+    return combined.get_result();
+}
+
+extension_state_t extension_theta_sketch_handle_intersect(
+    extension_state_t left,
+    extension_state_t right)
+{
   DEBUG_LOG("[INTERSECT] left=%d right=%d\n", left, right);
-  return join_sketches(left, right,
-                       [](SketchState &left_sketch, SketchState &right_sketch) {
-                         left_sketch.merge(right_sketch, [](auto &a, auto &b) {
-                           auto combined = theta_intersection();
-                           combined.update(a);
-                           combined.update(b);
-                           return combined.get_result();
-                         });
-                       });
+  return join_sketches(
+    left,
+    right,
+    [](SketchState &left_sketch, SketchState &right_sketch)
+    {
+      left_sketch.merge(right_sketch, intersect_merge);
+    });
 }
 
-extension_state_t extension_sketch_anotb_handle(extension_state_t left,
-                                                extension_state_t right) {
+extension_state_t extension_theta_sketch_handle_intersect_copy(
+    extension_state_t left,
+    extension_state_t right)
+{
+  DEBUG_LOG("[INTERSECT COPY] left=%d right=%d\n", left, right);
+  return join_sketches_copy(
+    left,
+    right,
+    [](SketchState &new_sketch, SketchState &left_sketch, SketchState &right_sketch)
+    {
+      new_sketch.copymerge(left_sketch, right_sketch, intersect_merge);
+    });
+}
+
+static compact_theta_sketch anotb_merge(
+    const compact_theta_sketch& a,
+    const compact_theta_sketch& b)
+{
+    return theta_a_not_b().compute(a, b);
+}
+
+extension_state_t extension_theta_sketch_handle_anotb(
+    extension_state_t left,
+    extension_state_t right)
+{
   DEBUG_LOG("[ANOTB] left=%d right=%d\n", left, right);
-  return join_sketches(left, right,
-                       [](SketchState &left_sketch, SketchState &right_sketch) {
-                         left_sketch.merge(right_sketch, [](auto &a, auto &b) {
-                           return theta_a_not_b().compute(a, b);
-                         });
-                       });
+  return join_sketches(
+    left,
+    right,
+    [](SketchState &left_sketch, SketchState &right_sketch)
+    {
+      left_sketch.merge(right_sketch, anotb_merge);
+    });
 }
 
-void extension_sketch_serialize_handle(extension_state_t handle,
-                                       extension_list_u8_t *data) {
+extension_state_t extension_theta_sketch_handle_anotb_copy(
+    extension_state_t left,
+    extension_state_t right)
+{
+  DEBUG_LOG("[ANOTB COPY] left=%d right=%d\n", left, right);
+  return join_sketches_copy(
+    left,
+    right,
+    [](SketchState &new_sketch, SketchState &left_sketch, SketchState &right_sketch)
+    {
+      new_sketch.copymerge(left_sketch, right_sketch, anotb_merge);
+    });
+}
+
+void extension_theta_sketch_handle_serialize(
+    extension_state_t handle,
+    extension_list_u8_t *data)
+{
   DEBUG_LOG("[SERIALIZE] handle=%d\n", handle);
   with_sketch(handle, [&](SketchState &sketch) {
     sketch.compact_sketch();
@@ -167,7 +340,9 @@ void extension_sketch_serialize_handle(extension_state_t handle,
 }
 
 extension_state_t
-extension_sketch_deserialize_handle(extension_list_u8_t *data) {
+extension_theta_sketch_handle_deserialize(
+    extension_list_u8_t *data)
+{
   DEBUG_LOG("[DESERIALIZE] ptr=%p len=%zu\n", data->ptr, data->len);
   auto compact_sketch = compact_theta_sketch::deserialize(data->ptr, data->len);
   extension_list_u8_free(data);
@@ -180,10 +355,15 @@ extension_sketch_deserialize_handle(extension_list_u8_t *data) {
   return handle;
 }
 
-double extension_sketch_estimate_handle(extension_list_u8_t *data) {
-  const auto estimate =
-      wrapped_compact_theta_sketch::wrap(data->ptr, data->len).get_estimate();
-  extension_list_u8_free(data);
+double extension_theta_sketch_handle_estimate(
+    extension_state_t handle) {
+  double estimate;
+  with_sketch(handle, [&](SketchState &sketch) {
+    sketch.compact_sketch();
+    estimate = sketch.m_compact->get_estimate();
+  });
   DEBUG_LOG("[ESTIMATE] estimate=%f\n", estimate);
+  sketch_destroy(handle);
   return estimate;
 }
+

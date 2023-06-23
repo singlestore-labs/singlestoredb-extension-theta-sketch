@@ -5,125 +5,103 @@
 [Theta sketches](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html) are a probabilistic data structure intended to approximate the cardinality of all common set operations,
 e.g. union, intersection, ..
 
-## Usage in SingleStore
+## Contents
+This library provides the following User Defined Aggregates (UDAFs) and UDFs (User Defined Functions).
 
-The library can import the following wasm functions usable with an aggregate function:
-* `sketch_init_handle`: initializes an empty sketch
-* `sketch_update_handle`: updates the sketch with a new sample
-* `sketch_union_handle`: merges two sketches through a `union` operation
-* `sketch_intersect_handle`: merges two sketches through an `intersect` operation
-* `sketch_anotb_handle`: merges two sketches through a `NOT IN` operation
-* `sketch_estimate_handle`: returns the estimated number of unique samples in the sketch
-* `sketch_serialize_handle`: serializes a sketch into its compact binary form
-* `sketch_deserialize_handle`: deserializes a sketch from its compact binary form 
+### `theta_sketch_create_union` (UDAF)
+- **Type**: Aggregate
+- **Syntax**: `THETA_SKETCH_CREATE_UNION(col)`
+- **Arguments**: The column from which to create a union theta sketch.
+- **Return Type**: The theta sketch representation as a BLOB.
+- **Description**: This is a UDAF that will generate a theta sketch from a column of data and return it as a serialized blob.  Sketches are merged using a `union` operation.  This blob can be used with the included UDFs, discussed below.
 
-Note: These functions assume they're called within an aggregate context with `HANDLE` state.
+### `theta_sketch_create_intersect` (UDAF)
+- **Type**: Aggregate
+- **Syntax**: `THETA_SKETCH_CREATE_INTERSECT(col)`
+- **Arguments**: The column from which to create an intersection theta sketch.
+- **Return Type**: The theta sketch representation as a BLOB.
+- **Description**: This is a UDAF that will generate a theta sketch from a column of data and return it as a serialized blob.  Sketches are merged using a `union` operation.  This blob can be used with the included UDFs, discussed below.
 
-in addition the aggregate function `theta_sketch` can be created as follows:
-```sql
-CREATE AGGREGATE theta_sketch(int NOT NULL)
-RETURNS BLOB NOT NULL
-WITH STATE HANDLE
-AS WASM FROM LOCAL INFILE "extension.wasm"
-INITIALIZE WITH sketch_init_handle
-ITERATE WITH sketch_update_handle
-MERGE WITH sketch_union_handle
-TERMINATE WITH <sketch_estimate_handle | sketch_serialize_handle>
-SERIALIZE WITH sketch_serialize_handle
-DESERIALIZE WITH sketch_deserialize_handle;
+### `theta_sketch_create_anotb` (UDAF)
+- **Type**: Aggregate
+- **Syntax**: `THETA_SKETCH_CREATE_ANOTB(col)`
+- **Arguments**: The column from which to create an a-not-b theta sketch.
+- **Return Type**: The theta sketch representation as a BLOB.
+- **Description**: This is a UDAF that will generate a theta sketch from a column of data and return it as a serialized blob.  Sketches are merged using a `union` operation.  This blob can be used with the included UDFs, discussed below.
+
+### `theta_sketch_merge_union` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_MERGE_UNION(blob, blob)`
+- **Arguments**: Two theta sketch blobs generated using the aggregate functions above.
+- **Return Type**: A new theta sketch `BLOB` generated using the union operation.
+- **Description**: This is a UDF that takes two serialized theta sketch blobs and performs a `union` operation on them.  A new serialized theta sketch blob is returned.
+
+### `theta_sketch_merge_intersect` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_MERGE_INTERSECT(blob, blob)`
+- **Arguments**: Two theta sketch blobs generated using the aggregate functions above.
+- **Return Type**: A new theta sketch `BLOB` generated using the intersection operation.
+- **Description**: This is a UDF that takes two serialized theta sketch blobs and performs an `intersect` operation on them.  A new serialized theta sketch blob is returned.
+
+### `theta_sketch_merge_anotb` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_MERGE_ANOTB(blob, blob)`
+- **Arguments**: Two theta sketch blobs generated using the aggregate functions above.
+- **Return Type**: A new theta sketch `BLOB` generated using the a-not-b operation.
+- **Description**: This is a UDF that takes two serialized theta sketch blobs and performs a `NOT IN` operation on them.  A new serialized theta sketch blob is returned.
+
+### `theta_sketch_apply` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_APPLY(blob)`
+- **Arguments**: One theta sketch blobs generated using one of the aggregate functions described above.
+- **Return Type**: The theta sketch estimate, as a `DOUBLE`.
+- **Description**: This is a UDF that takes a single serialized theta sketch and estimates the number of unique samples in it.
+
+## Building
+The Wasm module can be built using the following commands.  The build requires you to first install the [Wasm WASI SDK](https://github.com/WebAssembly/wasi-sdk).  The included Makefile assumes that the version of `clang` from the WASI SDK directory is in your path.  Replace the variable `$WASI_SDK_PATH` below with this directory.
+```bash
+# Make sure the WASI SDK binaries are in your PATH.
+export PATH=$WASI_SDK_PATH/bin:$PATH
+
+# Compile the Wasm module.
+make
+```
+The binary will be placed in the file `./extension.wasm`.
+
+## Deployment to SingleStoreDB
+To install these functions using the MySQL client, use the following commands.  They assume you have built the Wasm module and your current directory is the root of this Git repo.  Replace '$DBUSER`, `$DBHOST`, `$DBPORT`, and `$DBNAME` with, respectively, your database username, hostname, port, and the name of the database where you want to deploy the functions.
+```bash
+mysql -u $DBUSER -h $DBHOST -P $DBPORT -D $DBNAME -p < load_extension.sql
 ```
 
-In addition the following [UDFs](https://docs.singlestore.com/managed-service/en/reference/code-engine---powered-by-wasm.html) are available which operate
-on serialized sketches:
-
-* `sketch_union`: Merges two serialized sketches through a `union` operation
-* `sketch_intersect`: Merges two serialized sketches through an `intersect` operation
-* `sketch_anotb`: Merges two serialized sketches through a `NOT IN` operation
-* `sketch_estimate`: Returns the estimate number of unique samples in the serialized sketch
-
-### Examples
-
-An example set of `MySQL` statements can be found in `test.sql`:
+### Usage
+The following is simple example that creates a table with two columns of integers.  It generates a union-based theta sketch for each column, merges them into another union, and then computes the estimate of the merged theta sketch.
 ```sql
-create table IF NOT EXISTS sketch_input (id1 int, id2 int);
-insert into sketch_input values
-    (1, 2), (2, 4), (3, 6), (4, 8), (5, 10), (6, 12), (7, 14), (8, 16), (9, 18), (10, 20);
+CREATE TABLE IF NOT EXISTS sketch_input(id1 int, id2 int);
+INSERT INTO sketch_input VALUES (1, 2), (2, 4), (3, 6), (4, 8), (5, 10), (6, 12), (7, 14), (8, 16), (9, 18), (10, 20);
 
-select sketch_estimate(sketch_union(theta_sketch(id1), theta_sketch(id2))) from sketch_input;
+SELECT theta_sketch_apply(theta_sketch_merge_union(theta_sketch_create_union(id1), theta_sketch_create_union(id2))) FROM sketch_input;
 ```
 
-## Tools
+This next example is similar to the above one, except that it shows how to "save" the theta sketches in User-Defined Variables so they can be re-used.
+```sql
+CREATE TABLE IF NOT EXISTS sketch_input(id1 int, id2 int);
+INSERT INTO sketch_input VALUES (1, 2), (2, 4), (3, 6), (4, 8), (5, 10), (6, 12), (7, 14), (8, 16), (9, 18), (10, 20);
 
-To use the tools in this repo, you will need to have Docker installed on your system.  Most of these tools can be installed locally as well:
+SELECT theta_sketch_create_union(id1) FROM sketch_input INTO @sketch1;
+SELECT theta_sketch_create_union(id2) FROM sketch_input INTO @sketch2;
 
-### [clang](https://clang.llvm.org)
-The Clang compiler and toolchain.  The exact compiler version may differ between containers; see below for specifics.
-
-### [rust/cargo](https://www.rust-lang.org)
-The Rust compiler with the *stable* toolchain.  It has been configured with compilation targets for the default platform: *wasm32-wasi*.
-
-### [WASI SDK](https://github.com/WebAssembly/wasi-sdk)
-Utilities to support the WASI toolchain.
-
-### [WIT bindgen](https://github.com/WebAssembly/wasi-sdk)
-A language binding generator for the WIT IDL.
-
-## Useful other tools
-
-### [writ](https://github.com/singlestore-labs/writ)
-A utility to help test Wasm functions locally without the need to create a separate driver program.  Please see its dedicated [Git Repository](https://github.com/singlestore-labs/writ) for more information.
-
-### [pushwasm](https://github.com/singlestore-labs/pushwasm)
-A utility that allows you to easily import your locally-built Wasm function into SingleStoreDB as a UDF or TVF.  Please see its dedicated [Git Repository](https://github.com/singlestore-labs/pushwasm) for more information.
-
-## Development
-
-The project provides a simple `Makefile` which can be run to automatically generate the C++ bindings, compile the sources into a Wasm binary & generate the SQL import scripts to load the UDFs/TVFs into a SingleStore instance.
-
-Alternatively each step can be done individually using the following workflow:
-
-1. Start with the module interface, as defined in the [extension.wit](https://github.com/singlestore-labs/singlestoredb-extension-cpp-template/blob/main/extension.wit) file. Using the `wit-bindgen` tool you can generate the C stubs required to call the newly defined Wasm functions: 
-    ```sh
-    wit-bindgen c --export extension.wit
-    ```
-
-1. Compile your program using the clang compiler provided by `WASI-SDK`:
-    ```sh
-    clang++                          \
-        -fno-exceptions              \
-        --target=wasm32-unknown-wasi \
-        -mexec-model=reactor         \
-        -I.                          \
-        -o extension.wasm            \
-        extension.cpp extension_impl.cpp
-    ```
-
-1. Once the Wasm binary has been created, you can create a SQL import statement using the [create_loader.sh](https://github.com/singlestore-labs/singlestoredb-extension-cpp-template/blob/main/create_loader.sh) script. This creates a `load_extension.sql` file importing the TVF/UDFs using Base64:
-    ```sh
-    mysql -h <my-host> -u <my-yser> -p -D <my-database> < load_extension.sql
-    ```
-    Alternatively you can use the `pushwasm` tool to push a single UFD/TVF:
-    ```sh
-    pushwasm udaf -n theta_sketch --wasm extension.wasm --wit extension.wit --abi canonical --conn 'mysql://<my-user>@<my-host>:3306/<my-database>'
-        --state HANDLE \
-        --type 'int not null' \
-        --arg 'int not null' \
-        --init sketch_init_handle \
-        --iter sketch_update_handle \ 
-        --merge sketch_intersect_handle \ 
-        --terminate sketch_estimate_handle \
-        --serialize sketch_serialize_handle \
-        --deserialize sketch_deserialize_handle
-    ```
+SELECT theta_sketch_apply(theta_sketch_merge_union(@sketch1, @sketch2));
+SELECT theta_sketch_apply(theta_sketch_merge_intersect(@sketch1, @sketch2));
+```
 
 ## Additional Information
-
 To learn about the process of developing a Wasm UDF or TVF in more detail, please have a look at our [tutorial](https://singlestore-labs.github.io/singlestore-wasm-toolkit/html/Tutorial-Overview.html).
 
 The SingleStoreDB Wasm UDF/TVF documentation is [here](https://docs.singlestore.com/managed-service/en/reference/code-engine---powered-by-wasm.html).
 
 ## Resources
-
+* [Theta Sketches](https://datasketches.apache.org/docs/Theta/ThetaSketchFramework.html)
 * [Documentation](https://docs.singlestore.com)
 * [Twitter](https://twitter.com/SingleStoreDevs)
 * [SingleStore forums](https://www.singlestore.com/forum)
