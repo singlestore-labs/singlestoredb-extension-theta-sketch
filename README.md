@@ -17,7 +17,7 @@ This library provides the following User Defined Aggregates (UDAFs) and UDFs (Us
 
 ### `sketch_estimate` (UDF)
 - **Type**: Scalar Function
-- **Syntax**: `SKETCH_APPLY(blob)`
+- **Syntax**: `SKETCH_ESTIMATE(blob)`
 - **Arguments**: A theta sketch blob generated using `theta_sketch_agg`.
 - **Return Type**: The theta sketch estimate, as a `DOUBLE`.
 - **Description**: This is a UDF that takes a single serialized theta sketch and estimates the number of unique samples in it.
