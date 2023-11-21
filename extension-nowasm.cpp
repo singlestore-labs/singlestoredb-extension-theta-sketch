@@ -1,5 +1,5 @@
 #include <stdlib.h>
-#include <extension.h>
+#include <extension-nowasm.h>
 
 __attribute__((weak, export_name("canonical_abi_realloc")))
 void *canonical_abi_realloc(
@@ -22,7 +22,9 @@ size_t align
 ) {
   free(ptr);
 }
-#include <string.h>
+void extension_list_u8_free(extension_list_u8_t *ptr) {
+  canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
+}
 
 void extension_string_set(extension_string_t *ret, const char *s) {
   ret->ptr = (char*) s;
@@ -40,56 +42,53 @@ void extension_string_free(extension_string_t *ret) {
   ret->ptr = NULL;
   ret->len = 0;
 }
-void extension_list_u8_free(extension_list_u8_t *ptr) {
-  canonical_abi_free(ptr->ptr, ptr->len * 1, 1);
-}
 
 __attribute__((aligned(4)))
 static uint8_t RET_AREA[8];
 __attribute__((export_name("sketch-estimate")))
-double __wasm_export_extension_sketch_estimate(int32_t arg, int32_t arg0) {
+double __wasm_export_extension_sketch_estimate(ADDR arg, SIZE arg0) {
   extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
   double ret = extension_sketch_estimate(&arg1);
   return ret;
 }
-__attribute__((export_name("sketch-to-string")))
-int32_t __wasm_export_extension_sketch_to_string(int32_t arg, int32_t arg0) {
-  extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
-  extension_string_t ret;
-  extension_sketch_to_string(&arg1, &ret);
-  int32_t ptr = (int32_t) &RET_AREA;
-  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
-  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
-  return ptr;
-}
 __attribute__((export_name("sketch-agg-init-handle")))
-int32_t __wasm_export_extension_sketch_agg_init_handle(void) {
+HANDLE __wasm_export_extension_sketch_agg_init_handle(void) {
   extension_state_t ret = extension_sketch_agg_init_handle();
   return ret;
 }
 __attribute__((export_name("sketch-agg-update-handle")))
-int32_t __wasm_export_extension_sketch_agg_update_handle(int32_t arg, int32_t arg0, int32_t arg1) {
+HANDLE __wasm_export_extension_sketch_agg_update_handle(HANDLE arg, ADDR arg0, SIZE arg1) {
   extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
   extension_state_t ret = extension_sketch_agg_update_handle(arg, &arg2);
   return ret;
 }
 __attribute__((export_name("sketch-agg-merge-handle")))
-int32_t __wasm_export_extension_sketch_agg_merge_handle(int32_t arg, int32_t arg0) {
+HANDLE __wasm_export_extension_sketch_agg_merge_handle(HANDLE arg, HANDLE arg0) {
   extension_state_t ret = extension_sketch_agg_merge_handle(arg, arg0);
   return ret;
 }
 __attribute__((export_name("sketch-agg-serialize-handle")))
-int32_t __wasm_export_extension_sketch_agg_serialize_handle(int32_t arg) {
+ADDR __wasm_export_extension_sketch_agg_serialize_handle(HANDLE arg) {
   extension_list_u8_t ret;
   extension_sketch_agg_serialize_handle(arg, &ret);
-  int32_t ptr = (int32_t) &RET_AREA;
-  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
-  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  ADDR ptr = (ADDR) &RET_AREA;
+  *((ADDR*)(ptr + sizeof(ADDR))) = (ADDR) (ret).len;
+  *((ADDR*)(ptr + 0)) = (ADDR) (ret).ptr;
   return ptr;
 }
 __attribute__((export_name("sketch-agg-deserialize-handle")))
-int32_t __wasm_export_extension_sketch_agg_deserialize_handle(int32_t arg, int32_t arg0) {
+HANDLE __wasm_export_extension_sketch_agg_deserialize_handle(ADDR arg, SIZE arg0) {
   extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
   extension_state_t ret = extension_sketch_agg_deserialize_handle(&arg1);
   return ret;
+}
+__attribute__((export_name("sketch-to-string")))
+ADDR __wasm_export_extension_sketch_to_string(ADDR arg, SIZE arg0) {
+  extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_string_t ret;
+  extension_sketch_to_string(&arg1, &ret);
+  ADDR ptr = (ADDR) &RET_AREA;
+  *((ADDR*)(ptr + sizeof(ADDR))) = (ADDR) (ret).len;
+  *((ADDR*)(ptr + 0)) = (ADDR) (ret).ptr;
+  return ptr;
 }

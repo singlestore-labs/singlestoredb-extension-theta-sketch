@@ -22,6 +22,9 @@
 
 #include <string>
 #include <stdexcept>
+#include <string>
+
+#include "theta_constants.hpp"
 #include "exception.hpp"
 
 namespace datasketches {

@@ -24,6 +24,7 @@
 #include <exception>
 #include <iostream>
 #include <string>
+#include <cstring>
 #include "exception.hpp"
 
 namespace datasketches {
@@ -55,14 +56,14 @@ static inline size_t copy_to_mem(const void* src, void* dst, size_t size) {
 }
 
 template<typename T>
-static inline size_t copy_to_mem(const T& item, void* dst) {
-  memcpy(dst, &item, sizeof(T));
+static inline size_t copy_from_mem(const void* src, T& item) {
+  memcpy(&item, src, sizeof(T));
   return sizeof(T);
 }
 
 template<typename T>
-static inline size_t copy_from_mem(const void* src, T& item) {
-  memcpy(&item, src, sizeof(T));
+static inline size_t copy_to_mem(T item, void* dst) {
+  memcpy(dst, &item, sizeof(T));
   return sizeof(T);
 }
 

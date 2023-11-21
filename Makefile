@@ -38,7 +38,7 @@ extension.wasm: extension.cpp
  		-Icommon \
  		-Itheta-sketch \
  		-o extension.wasm \
- 		extension.cpp extension_impl_handle.cpp extension_impl_value.cpp
+ 		extension.cpp extension_impl_handle.cpp
 
 extension.cpp: extension.wit
 	wit-bindgen c --export extension.wit
@@ -49,9 +49,20 @@ extension.cpp: extension.wit
 load_extension.sql: create_loader.sh
 	./create_loader.sh
 
+.PHONY: driver
+driver:
+	clang++ \
+        -g \
+        -DNOTWASM \
+        -I. \
+        -Icommon \
+        -Itheta-sketch \
+        -o driver \
+        driver.cpp extension-nowasm.cpp extension_impl_handle.cpp
+
 .PHONY: clean
 clean:
-	@rm -f extension.wasm load_extension.sql
+	@rm -f extension.wasm load_extension.sql driver
 
 .PHONY: distclean
 distclean: clean

@@ -20,13 +20,36 @@
 #ifndef THETA_SKETCH_HPP_
 #define THETA_SKETCH_HPP_
 
+#include "theta_data.hpp"
 #include "theta_update_sketch_base.hpp"
+#include "compact_theta_sketch_parser.hpp"
 
 namespace datasketches {
 
+// forward declarations
+template<typename A> class theta_sketch_alloc;
+template<typename A> class update_theta_sketch_alloc;
+template<typename A> class compact_theta_sketch_alloc;
+template<typename A> class wrapped_compact_theta_sketch_alloc;
+
+/// Theta sketch alias with default allocator
+using theta_sketch = theta_sketch_alloc<std::allocator<uint64_t>>;
+/// Update Theta sketch alias with default allocator
+using update_theta_sketch = update_theta_sketch_alloc<std::allocator<uint64_t>>;
+/// Compact Theta sketch alias with default allocator
+using compact_theta_sketch = compact_theta_sketch_alloc<std::allocator<uint64_t>>;
+/// Wrapped Compact Theta sketch alias with default allocator
+using wrapped_compact_theta_sketch = wrapped_compact_theta_sketch_alloc<std::allocator<uint64_t>>;
+
+/// Abstract base class for Theta sketch
 template<typename Allocator = std::allocator<uint64_t>>
-class base_theta_sketch_alloc {
+class base_theta_sketch_alloc : public theta_data {
 public:
+
+  base_theta_sketch_alloc()
+      : theta_data()
+  {
+  }
 
   virtual ~base_theta_sketch_alloc() = default;
 
@@ -105,6 +128,7 @@ protected:
   virtual void print_items(std::ostringstream& os) const = 0;
 };
 
+/// Base class for the Theta Sketch, a generalization of the Kth Minimum Value (KMV) sketch.
 template<typename Allocator = std::allocator<uint64_t>>
 class theta_sketch_alloc: public base_theta_sketch_alloc<Allocator> {
 public:
@@ -148,6 +172,11 @@ protected:
 // forward declaration
 template<typename A> class compact_theta_sketch_alloc;
 
+/**
+ * Update Theta sketch.
+ * The purpose of this class is to build a Theta sketch from input data via the update() methods.
+ * There is no constructor. Use builder instead.
+ */
 template<typename Allocator = std::allocator<uint64_t>>
 class update_theta_sketch_alloc: public theta_sketch_alloc<Allocator> {
 public:
@@ -162,11 +191,33 @@ public:
   // No constructor here. Use builder instead.
   class builder;
 
-  update_theta_sketch_alloc(const update_theta_sketch_alloc&) = default;
-  update_theta_sketch_alloc(update_theta_sketch_alloc&&) noexcept = default;
+  /**
+   * Copy constructor
+   * @param other sketch to be copied
+   */
+  update_theta_sketch_alloc(const update_theta_sketch_alloc& other) = default;
+
+  /**
+   * Move constructor
+   * @param other sketch to be moved
+   */
+  update_theta_sketch_alloc(update_theta_sketch_alloc&& other) noexcept = default;
+
   virtual ~update_theta_sketch_alloc() = default;
-  update_theta_sketch_alloc& operator=(const update_theta_sketch_alloc&) = default;
-  update_theta_sketch_alloc& operator=(update_theta_sketch_alloc&&) = default;
+
+  /**
+   * Copy assignment
+   * @param other sketch to be copied
+   * @return reference to this sketch
+   */
+  update_theta_sketch_alloc& operator=(const update_theta_sketch_alloc& other) = default;
+
+  /**
+   * Move assignment
+   * @param other sketch to be moved
+   * @return reference to this sketch
+   */
+  update_theta_sketch_alloc& operator=(update_theta_sketch_alloc&& other) = default;
 
   virtual Allocator get_allocator() const;
   virtual bool is_empty() const;
@@ -286,7 +337,7 @@ public:
 
   /**
    * Converts this sketch to a compact sketch (ordered or unordered).
-   * @param ordered optional flag to specify if ordered sketch should be produced
+   * @param ordered optional flag to specify if an ordered sketch should be produced
    * @return compact sketch
    */
   compact_theta_sketch_alloc<Allocator> compact(bool ordered = true) const;
@@ -306,8 +357,10 @@ private:
   virtual void print_specifics(std::ostringstream& os) const;
 };
 
-// compact sketch
-
+/**
+ * Compact Theta sketch.
+ * This is an immutable form of the Theta sketch, the form that can be serialized and deserialized.
+ */
 template<typename Allocator = std::allocator<uint64_t>>
 class compact_theta_sketch_alloc: public theta_sketch_alloc<Allocator> {
 public:
@@ -317,7 +370,8 @@ public:
   using AllocBytes = typename std::allocator_traits<Allocator>::template rebind_alloc<uint8_t>;
   using vector_bytes = std::vector<uint8_t, AllocBytes>;
 
-  static const uint8_t SERIAL_VERSION = 3;
+  static const uint8_t UNCOMPRESSED_SERIAL_VERSION = 3;
+  static const uint8_t COMPRESSED_SERIAL_VERSION = 4;
   static const uint8_t SKETCH_TYPE = 3;
 
   // Instances of this type can be obtained:
@@ -325,13 +379,42 @@ public:
   // - as a result of a set operation
   // - by deserializing a previously serialized compact sketch
 
+  /**
+   * Copy constructor.
+   * Constructs a compact sketch from any other type of Theta sketch
+   * @param other sketch to be constructed from
+   * @param ordered if true make the resulting sketch ordered
+   */
   template<typename Other>
   compact_theta_sketch_alloc(const Other& other, bool ordered);
-  compact_theta_sketch_alloc(const compact_theta_sketch_alloc&) = default;
-  compact_theta_sketch_alloc(compact_theta_sketch_alloc&&) noexcept = default;
+
+  /**
+   * Copy constructor
+   * @param other sketch to be copied
+   */
+  compact_theta_sketch_alloc(const compact_theta_sketch_alloc& other) = default;
+
+  /**
+   * Move constructor
+   * @param other sketch to be moved
+   */
+  compact_theta_sketch_alloc(compact_theta_sketch_alloc&& other) noexcept = default;
+
   virtual ~compact_theta_sketch_alloc() = default;
-  compact_theta_sketch_alloc& operator=(const compact_theta_sketch_alloc&) = default;
-  compact_theta_sketch_alloc& operator=(compact_theta_sketch_alloc&&) = default;
+
+  /**
+   * Copy assignment
+   * @param other sketch to be copied
+   * @return reference to this sketch
+   */
+  compact_theta_sketch_alloc& operator=(const compact_theta_sketch_alloc& other) = default;
+
+  /**
+   * Move assignment
+   * @param other sketch to be moved
+   * @return reference to this sketch
+   */
+  compact_theta_sketch_alloc& operator=(compact_theta_sketch_alloc&& other) = default;
 
   virtual Allocator get_allocator() const;
   virtual bool is_empty() const;
@@ -346,6 +429,9 @@ public:
    */
   void serialize(std::ostream& os) const;
 
+  bool serialize2(unsigned char** bytes, size_t* size) const;
+
+
   /**
    * This method serializes the sketch as a vector of bytes.
    * An optional header can be reserved in front of the sketch.
@@ -354,6 +440,25 @@ public:
    * @param header_size_bytes space to reserve in front of the sketch
    */
   vector_bytes serialize(unsigned header_size_bytes = 0) const;
+
+  /**
+   * This method serializes the sketch into a given stream in a compressed binary form.
+   * Compression is applied to ordered sketches except empty and single item.
+   * For unordered, empty and single item sketches this method is equivalent to serialize()
+   * @param os output stream
+   */
+  void serialize_compressed(std::ostream& os) const;
+
+  /**
+   * This method serializes the sketch as a vector of bytes.
+   * An optional header can be reserved in front of the sketch.
+   * It is an uninitialized space of a given size.
+   * This header is used in Datasketches PostgreSQL extension.
+   * Compression is applied to ordered sketches except empty and single item.
+   * For unordered, empty and single item sketches this method is equivalent to serialize()
+   * @param header_size_bytes space to reserve in front of the sketch
+   */
+  vector_bytes serialize_compressed(unsigned header_size_bytes = 0) const;
 
   virtual iterator begin();
   virtual iterator end();
@@ -364,6 +469,7 @@ public:
    * This method deserializes a sketch from a given stream.
    * @param is input stream
    * @param seed the seed for the hash function that was used to create the sketch
+   * @param allocator instance of an Allocator
    * @return an instance of the sketch
    */
   static compact_theta_sketch_alloc deserialize(std::istream& is,
@@ -374,13 +480,11 @@ public:
    * @param bytes pointer to the array of bytes
    * @param size the size of the array
    * @param seed the seed for the hash function that was used to create the sketch
+   * @param allocator instance of an Allocator
    * @return an instance of the sketch
    */
   static compact_theta_sketch_alloc deserialize(const void* bytes, size_t size,
       uint64_t seed = DEFAULT_SEED, const Allocator& allocator = Allocator());
-
-  // for internal use
-  compact_theta_sketch_alloc(bool is_empty, bool is_ordered, uint16_t seed_hash, uint64_t theta, std::vector<uint64_t, Allocator>&& entries);
 
 private:
   enum flags { IS_BIG_ENDIAN, IS_READ_ONLY, IS_EMPTY, IS_COMPACT, IS_ORDERED };
@@ -391,24 +495,46 @@ private:
   uint64_t theta_;
   std::vector<uint64_t, Allocator> entries_;
 
-public:
+  bool is_suitable_for_compression() const;
+  uint8_t compute_min_leading_zeros() const;
+  void serialize_version_4(std::ostream& os) const;
+  vector_bytes serialize_version_4(unsigned header_size_bytes = 0) const;
+
+  static compact_theta_sketch_alloc deserialize_v1(uint8_t preamble_longs, std::istream& is, uint64_t seed, const Allocator& allocator);
+  static compact_theta_sketch_alloc deserialize_v2(uint8_t preamble_longs, std::istream& is, uint64_t seed, const Allocator& allocator);
+  static compact_theta_sketch_alloc deserialize_v3(uint8_t preamble_longs, std::istream& is, uint64_t seed, const Allocator& allocator);
+  static compact_theta_sketch_alloc deserialize_v4(uint8_t preamble_longs, std::istream& is, uint64_t seed, const Allocator& allocator);
+
   virtual void print_specifics(std::ostringstream& os) const;
+
+  template<typename E, typename EK, typename P, typename S, typename CS, typename A> friend class theta_union_base;
+  template<typename E, typename EK, typename P, typename S, typename CS, typename A> friend class theta_intersection_base;
+  template<typename E, typename EK, typename CS, typename A> friend class theta_set_difference_base;
+  compact_theta_sketch_alloc(bool is_empty, bool is_ordered, uint16_t seed_hash, uint64_t theta, std::vector<uint64_t, Allocator>&& entries);
 };
 
+/// Update Theta sketch builder
 template<typename Allocator>
 class update_theta_sketch_alloc<Allocator>::builder: public theta_base_builder<builder, Allocator> {
 public:
+    /**
+     * Constructor
+     * @param allocator
+     */
     builder(const Allocator& allocator = Allocator());
+    /// @return instance of Update Theta sketch
     update_theta_sketch_alloc build() const;
 };
 
-// This is to wrap a buffer containing a serialized compact sketch and use it in a set operation avoiding some cost of deserialization.
-// It does not take the ownership of the buffer.
-
+/**
+ * Wrapped Compact Theta sketch.
+ * This is to wrap a buffer containing a serialized compact sketch and use it in a set operation avoiding some cost of deserialization.
+ * It does not take the ownership of the buffer.
+ */
 template<typename Allocator = std::allocator<uint64_t>>
-class wrapped_compact_theta_sketch_alloc : public base_theta_sketch_alloc<Allocator> {
+class wrapped_compact_theta_sketch_alloc: public base_theta_sketch_alloc<Allocator> {
 public:
-  using const_iterator = const uint64_t*;
+  class const_iterator;
 
   Allocator get_allocator() const;
   bool is_empty() const;
@@ -417,7 +543,17 @@ public:
   uint32_t get_num_retained() const;
   uint16_t get_seed_hash() const;
 
+  /**
+   * Const iterator over hash values in this sketch.
+   * @return begin iterator
+   */
   const_iterator begin() const;
+
+  /**
+   * Const iterator pointing past the valid range.
+   * Not to be incremented or dereferenced.
+   * @return end iterator
+   */
   const_iterator end() const;
 
   /**
@@ -425,6 +561,7 @@ public:
    * @param bytes pointer to the array of bytes
    * @param size the size of the array
    * @param seed the seed for the hash function that was used to create the sketch
+   * @param dump_on_error if true prints hex dump of the input
    * @return an instance of the sketch
    */
   static const wrapped_compact_theta_sketch_alloc wrap(const void* bytes, size_t size, uint64_t seed = DEFAULT_SEED, bool dump_on_error = false);
@@ -434,22 +571,40 @@ protected:
   virtual void print_items(std::ostringstream& os) const;
 
 private:
-  bool is_empty_;
-  bool is_ordered_;
-  uint16_t seed_hash_;
-  uint32_t num_entries_;
-  uint64_t theta_;
-  const uint64_t* entries_;
+  using data_type = compact_theta_sketch_parser<true>::compact_theta_sketch_data;
+  data_type data_;
 
-  wrapped_compact_theta_sketch_alloc(bool is_empty, bool is_ordered, uint16_t seed_hash, uint32_t num_entries,
-      uint64_t theta, const uint64_t* entries);
+  wrapped_compact_theta_sketch_alloc(const data_type& data);
 };
 
-// aliases with default allocator for convenience
-using theta_sketch = theta_sketch_alloc<std::allocator<uint64_t>>;
-using update_theta_sketch = update_theta_sketch_alloc<std::allocator<uint64_t>>;
-using compact_theta_sketch = compact_theta_sketch_alloc<std::allocator<uint64_t>>;
-using wrapped_compact_theta_sketch = wrapped_compact_theta_sketch_alloc<std::allocator<uint64_t>>;
+template<typename Allocator>
+class wrapped_compact_theta_sketch_alloc<Allocator>::const_iterator {
+public:
+  using iterator_category = std::input_iterator_tag;
+  using value_type = const uint64_t;
+  using difference_type = void;
+  using pointer = value_type*;
+  using reference = uint64_t;
+
+  const_iterator(const void* ptr, uint8_t entry_bits, uint32_t num_entries, uint32_t index);
+  const_iterator& operator++();
+  const_iterator operator++(int);
+  bool operator==(const const_iterator& other) const;
+  bool operator!=(const const_iterator& other) const;
+  reference operator*() const;
+  pointer operator->() const;
+
+private:
+  const void* ptr_;
+  uint8_t entry_bits_;
+  uint32_t num_entries_;
+  uint32_t index_;
+  uint64_t previous_;
+  bool is_block_mode_;
+  uint8_t buf_i_;
+  uint8_t offset_;
+  uint64_t buffer_[8];
+};
 
 } /* namespace datasketches */
 

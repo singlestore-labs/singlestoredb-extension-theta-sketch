@@ -20,17 +20,20 @@
 #ifndef THETA_UNION_IMPL_HPP_
 #define THETA_UNION_IMPL_HPP_
 
+#include "theta_data.hpp"
+
 namespace datasketches {
 
 template<typename A>
 theta_union_alloc<A>::theta_union_alloc(uint8_t lg_cur_size, uint8_t lg_nom_size, resize_factor rf, float p, uint64_t theta, uint64_t seed, const A& allocator):
+theta_data(),
 state_(lg_cur_size, lg_nom_size, rf, p, theta, seed, nop_policy(), allocator)
 {}
 
 template<typename A>
-template<typename SS>
-void theta_union_alloc<A>::update(SS&& sketch) {
-  state_.update(std::forward<SS>(sketch));
+template<typename FwdSketch>
+void theta_union_alloc<A>::update(FwdSketch&& sketch) {
+  state_.update(std::forward<FwdSketch>(sketch));
 }
 
 template<typename A>

@@ -22,8 +22,6 @@
 
 #include <cstdint>
 
-#include <stdio.h>
-
 namespace datasketches {
 
 static const uint8_t byte_leading_zeros_table[256] = {
@@ -89,6 +87,17 @@ static inline uint8_t count_leading_zeros_in_u64(uint64_t input) {
     return 48 + byte_leading_zeros_table[(input >>  8) & FCLZ_MASK_08];
   if (true)
     return 56 + byte_leading_zeros_table[(input      ) & FCLZ_MASK_08];
+}
+
+static inline uint8_t count_leading_zeros_in_u32(uint32_t input) {
+  if (input > FCLZ_MASK_24)
+    return      byte_leading_zeros_table[(input >> 24) & FCLZ_MASK_08];
+  if (input > FCLZ_MASK_16)
+    return 8 + byte_leading_zeros_table[(input >> 16) & FCLZ_MASK_08];
+  if (input > FCLZ_MASK_08)
+    return 16 + byte_leading_zeros_table[(input >>  8) & FCLZ_MASK_08];
+  if (true)
+    return 24 + byte_leading_zeros_table[(input      ) & FCLZ_MASK_08];
 }
 
 static inline uint8_t count_trailing_zeros_in_u32(uint32_t input) {

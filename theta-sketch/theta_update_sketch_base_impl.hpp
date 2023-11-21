@@ -189,7 +189,7 @@ auto theta_update_sketch_base<EN, EK, A>::begin() const -> iterator {
 
 template<typename EN, typename EK, typename A>
 auto theta_update_sketch_base<EN, EK, A>::end() const -> iterator {
-  return &entries_[1ULL << lg_cur_size_];
+  return entries_ + (1ULL << lg_cur_size_);
 }
 
 template<typename EN, typename EK, typename A>
@@ -383,8 +383,13 @@ bool theta_iterator<Entry, ExtractKey>::operator==(const theta_iterator& other) 
 }
 
 template<typename Entry, typename ExtractKey>
-auto theta_iterator<Entry, ExtractKey>::operator*() const -> Entry& {
+auto theta_iterator<Entry, ExtractKey>::operator*() const -> reference {
   return entries_[index_];
+}
+
+template<typename Entry, typename ExtractKey>
+auto theta_iterator<Entry, ExtractKey>::operator->() const -> pointer {
+  return entries_ + index_;
 }
 
 // const iterator
@@ -420,8 +425,13 @@ bool theta_const_iterator<Entry, ExtractKey>::operator==(const theta_const_itera
 }
 
 template<typename Entry, typename ExtractKey>
-auto theta_const_iterator<Entry, ExtractKey>::operator*() const -> const Entry& {
+auto theta_const_iterator<Entry, ExtractKey>::operator*() const -> reference {
   return entries_[index_];
+}
+
+template<typename Entry, typename ExtractKey>
+auto theta_const_iterator<Entry, ExtractKey>::operator->() const -> pointer {
+  return entries_ + index_;
 }
 
 } /* namespace datasketches */

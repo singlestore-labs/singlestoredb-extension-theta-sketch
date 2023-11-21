@@ -1,60 +1,23 @@
 type state = s32
 
-/***************************/
-/*     Handle functions    */
-/***************************/
-
-// Initializes an empty theta sketch state
-theta-sketch-handle-init: func() -> state
-
-// Clones an existing theta sketch state
-theta-sketch-handle-clone: func(state: state) -> state
-
-// Destroys a theta sketch state
-theta-sketch-handle-destroy: func(state: state) -> s32
-
-// Adds a value to the theta sketch
-theta-sketch-handle-update: func(state: state, input: s32) -> state
-
-// Merges two sketches using a union operation
-theta-sketch-handle-union: func(left: state, right: state) -> state
-
-// Merges two sketches using a union operation; a new sketch is returned
-theta-sketch-handle-union-copy: func(left: state, right: state) -> state
-
-// Merges two sketches using an intersect operation
-theta-sketch-handle-intersect: func(left: state, right: state) -> state
-
-// Merges two sketches using an intersect operation; a new sketch is returned
-theta-sketch-handle-intersect-copy: func(left: state, right: state) -> state
-
-// Merges two sketches using a A^B operation
-theta-sketch-handle-anotb: func(left: state, right: state) -> state
-
-// Merges two sketches using a A^B operation; a new sketch is returned
-theta-sketch-handle-anotb-copy: func(left: state, right: state) -> state
-
-// Serializes the state
-theta-sketch-handle-serialize: func(s: state) -> list<u8>
-
-// Deserializes the state
-theta-sketch-handle-deserialize: func(data: list<u8>) -> state
-
 // Computes the theta value of the sketch
-theta-sketch-handle-estimate: func(s: state) -> float64
+sketch-estimate: func(data: list<u8>) -> float64
 
-/***************************/
-/*     Value functions     */
-/***************************/
+// Returns string representation of the state.
+sketch-to-string: func(data: list<u8>) -> string
 
-// Merges two sketches using a union operation
-theta-sketch-union: func(left: list<u8>, right: list<u8>) -> list<u8>
+// Initializes a new aggregate sketch state
+sketch-agg-init-handle: func() -> state
 
-// Merges two sketches using an intersect operation
-theta-sketch-intersect: func(left: list<u8>, right: list<u8>) -> list<u8>
+// Merges a second sketch using UNION
+sketch-agg-update-handle: func(state: state, input: list<u8>) -> state
 
-// Merges two sketches using a A^B operation
-theta-sketch-anotb: func(left: list<u8>, right: list<u8>) -> list<u8>
+// Merges two compact sketches
+sketch-agg-merge-handle: func(left: state, right: state) -> state
 
-// Computes the theta value of the sketch
-theta-sketch-estimate: func(data: list<u8>) -> float64
+// Serializes the merged sketches
+sketch-agg-serialize-handle: func(state: state) -> list<u8>
+
+// Deserializes the compact sketch
+sketch-agg-deserialize-handle: func(data: list<u8>) -> state
+
