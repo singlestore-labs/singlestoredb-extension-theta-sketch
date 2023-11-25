@@ -162,6 +162,7 @@ extension_state_t extension_sketch_agg_update_handle(extension_state_t handle, e
         theta_data_set_type(state, MUTABLE_SKETCH);
     }
     theta_sketch_update(state, input->ptr, input->len);
+    free(input->ptr);
     return TO_HND(state);
 }
 
