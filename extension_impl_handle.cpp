@@ -8,6 +8,8 @@
 #include "theta_intersection.hpp"
 #include "theta_sketch.hpp"
 #include "theta_union.hpp"
+#include "theta_constants.hpp"
+#include "MurmurHash3.h"
 #include <unistd.h>
 
 using namespace datasketches;
@@ -17,6 +19,104 @@ using namespace datasketches;
 #define TO_PTR(x_) (reinterpret_cast<void*>(x_))
 #define VALID_HANDLE(s_) (TO_HND(s_) != NO_HANDLE)
 
+#define MAX_PAGE_SIZE 8192
+
+struct page
+{
+    struct page* next;
+    uint64_t data[MAX_PAGE_SIZE];
+};
+
+page* free_pages = nullptr;
+
+
+template <class T> class s2alloc {
+public:
+  typedef T                 value_type;
+  typedef value_type*       pointer;
+  typedef const value_type* const_pointer;
+  typedef value_type&       reference;
+  typedef const value_type& const_reference;
+  typedef std::size_t       size_type;
+  typedef std::ptrdiff_t    difference_type;
+
+  template <class U>
+  struct rebind { typedef s2alloc<U> other; };
+
+  s2alloc() = default;
+  template <class U>
+  s2alloc(const s2alloc<U>&) {}
+
+  pointer address(reference x) const { return &x; }
+  const_pointer address(const_reference x) const {
+    return &x;
+  }
+
+  pointer allocate(size_type n, const_pointer = 0) {
+      /*
+    if (n > MAX_PAGE_SIZE)
+    {
+        abort();
+    }
+
+    page* p = free_pages;
+    if (!p)
+    {
+        p = (page*) malloc(sizeof(page));
+    }
+    else
+    {
+        free_pages = p->next;
+        p->next = nullptr;
+    }
+    */
+
+    void* p = malloc(n * sizeof(T));
+    //printf("MALLOC %zu: %p\n", n, p);
+    //return static_cast<pointer>((T*) &p->data[0]);
+    return static_cast<pointer>(p);
+  }
+
+  void deallocate(pointer p, size_type) {
+      //printf("FREE %p\n", p);
+      if (p)
+      {
+          //page* pg = (page*) ((char*) p - sizeof(uintptr_t));
+          free(p);
+          //pg->next = free_pages;
+          //free_pages = pg;
+      }
+  }
+
+  size_type max_size() const {
+    return static_cast<size_type>(-1) / sizeof(T);
+  }
+
+  template<typename... Args>
+  void construct(pointer p, Args&&... args) {
+    new(p) value_type(std::forward<Args>(args)...);
+  }
+  void destroy(pointer p) { p->~value_type(); }
+};
+
+//using s2_theta_sketch = theta_sketch_alloc<s2alloc<uint64_t>>;
+//using s2_update_theta_sketch = update_theta_sketch_alloc<s2alloc<uint64_t>>;
+//using s2_compact_theta_sketch = compact_theta_sketch_alloc<s2alloc<uint64_t>>;
+//using s2_theta_union = theta_union_alloc<s2alloc<uint64_t>>;
+//using s2_theta_intersection = theta_intersection_alloc<s2alloc<uint64_t>>;
+using s2_theta_sketch = theta_sketch;
+using s2_update_theta_sketch = update_theta_sketch;
+using s2_compact_theta_sketch = compact_theta_sketch;
+using s2_wrapped_compact_theta_sketch = wrapped_compact_theta_sketch;
+using s2_theta_union = theta_union;
+using s2_theta_intersection = theta_intersection;
+
+#define theta_sketch                 s2_theta_sketch
+#define update_theta_sketch          s2_update_theta_sketch
+#define compact_theta_sketch         s2_compact_theta_sketch
+#define wrapped_compact_theta_sketch s2_wrapped_compact_theta_sketch
+#define theta_union                  s2_theta_union
+#define theta_intersection           s2_theta_intersection
 
 static void* theta_sketch_new_default()
 {
@@ -70,6 +170,11 @@ static void theta_sketch_update(void* sketchptr, const void* data, unsigned leng
     static_cast<update_theta_sketch*>(sketchptr)->update(data, length);
 }
 
+static void theta_sketch_update_raw(void* sketchptr, const uint64_t hash)
+{
+    static_cast<update_theta_sketch*>(sketchptr)->update_raw(hash);
+}
+
 static void theta_data_set_type(void* dataptr, agg_state_type t)
 {
     static_cast<theta_data*>(dataptr)->set_type(t);
@@ -101,9 +206,21 @@ static void theta_union_update_with_sketch(void* unionptr, const void* sketchptr
     static_cast<theta_union*>(unionptr)->update(*static_cast<const theta_sketch*>(sketchptr));
 }
 
+static void theta_union_update_with_bytes(void* unionptr, extension_list_u8_t* bytes)
+{
+    static_cast<theta_union*>(unionptr)->update(
+        wrapped_compact_theta_sketch::wrap(bytes->ptr, bytes->len));
+}
+
 static void theta_intersection_update_with_sketch(void* interptr, const void* sketchptr)
 {
     static_cast<theta_intersection*>(interptr)->update(*static_cast<const theta_sketch*>(sketchptr));
+}
+
+static void theta_intersection_update_with_bytes(void* interptr, extension_list_u8_t* bytes)
+{
+    static_cast<theta_intersection*>(interptr)->update(
+        wrapped_compact_theta_sketch::wrap(bytes->ptr, bytes->len));
 }
 
 static void* theta_sketch_compact(void* sketchptr)
@@ -147,13 +264,28 @@ static void theta_sketch_to_string(void* sketchptr, extension_string_t *ret0)
     ret0->ptr = buffer;
 }
 
+static void*
+theta_anotb(
+    const extension_list_u8_t* buf1,
+    const extension_list_u8_t* buf2)
+{
+    theta_a_not_b a_not_b;
+    return new compact_theta_sketch(
+        a_not_b.compute(
+            wrapped_compact_theta_sketch::wrap(buf1->ptr, buf1->len),
+            wrapped_compact_theta_sketch::wrap(buf2->ptr, buf2->len)));
+}
 
-extension_state_t extension_sketch_agg_init_handle()
+
+extension_state_t extension_sketch_handle_init()
 {
     return NO_HANDLE;
 }
 
-extension_state_t extension_sketch_agg_update_handle(extension_state_t handle, extension_list_u8_t *input)
+extension_state_t
+extension_sketch_handle_build_accum(
+    extension_state_t handle, 
+    extension_list_u8_t *input)
 {
     void* state = TO_PTR(handle);
     if (!VALID_HANDLE(handle))
@@ -166,35 +298,169 @@ extension_state_t extension_sketch_agg_update_handle(extension_state_t handle, e
     return TO_HND(state);
 }
 
-extension_state_t extension_sketch_agg_merge_handle(extension_state_t left, extension_state_t right)
+extension_state_t
+extension_sketch_handle_build_accum_raw(
+    extension_state_t handle,
+    uint64_t input)
 {
-    auto combined = theta_union_new_default();
-    theta_data_set_type(combined, IMMUTABLE_SKETCH);
-    if (VALID_HANDLE(left))
+    void* state = TO_PTR(handle);
+    if (!VALID_HANDLE(handle))
     {
-        void* state = TO_PTR(left);
-        if (theta_data_get_type(state) == UNION)
-        {
-            state = theta_union_get_result(state);
-        }
-        theta_union_update_with_sketch(combined, state);
-        theta_sketch_delete(state);
+        state = theta_sketch_new_default();
+        theta_data_set_type(state, MUTABLE_SKETCH);
     }
-    if (VALID_HANDLE(right))
-    {
-        void* state = TO_PTR(right);
-        if (theta_data_get_type(state) == UNION)
-        {
-            state = theta_union_get_result(state);
-        }
-        theta_union_update_with_sketch(combined, state);
-        theta_sketch_delete(state);
-    }
-    combined = theta_union_get_result(combined);
-    return TO_HND(combined);
+    theta_sketch_update_raw(state, input);
+    return TO_HND(state);
 }
 
-void extension_sketch_agg_serialize_handle(extension_state_t handle, extension_list_u8_t *output)
+extension_state_t
+extension_sketch_handle_union_accum(
+    extension_state_t handle,
+    extension_list_u8_t *input)
+{
+    void* state = TO_PTR(handle);
+    if (!VALID_HANDLE(handle))
+    {
+        state = theta_union_new_default();
+        theta_data_set_type(state, UNION);
+    }
+    theta_union_update_with_bytes(state, input);
+    free(input->ptr);
+    return TO_HND(state);
+}
+
+extension_state_t
+extension_sketch_handle_intersection_accum(
+    extension_state_t handle,
+    extension_list_u8_t *input)
+{
+    void* state = TO_PTR(handle);
+    if (!VALID_HANDLE(handle))
+    {
+        state = theta_intersection_new_default();
+        theta_data_set_type(state, INTERSECTION);
+    }
+    theta_intersection_update_with_bytes(state, input);
+    free(input->ptr);
+    return TO_HND(state);
+}
+
+extension_state_t
+extension_sketch_handle_union_merge(
+    extension_state_t left,
+    extension_state_t right)
+{
+    if (!VALID_HANDLE(left) && VALID_HANDLE(right))
+    {
+        return right;
+    }
+    if (VALID_HANDLE(left) && !VALID_HANDLE(right))
+    {
+        return left;
+    }
+
+    void* u = nullptr;
+    void* ops[2] = { 0 };
+    if (theta_data_get_type(TO_PTR(left)) == UNION)
+    {
+        u = TO_PTR(left);
+        ops[0] = TO_PTR(right);
+    }
+    else if (theta_data_get_type(TO_PTR(right)) == UNION)
+    {
+        u = TO_PTR(right);
+        ops[0] = TO_PTR(left);
+    }
+    else
+    {
+        u = theta_union_new_default();
+        theta_data_set_type(u, UNION);
+        ops[0] = TO_PTR(left);
+        ops[1] = TO_PTR(right);
+    }
+
+    for (int i = 0; i < 2; ++i)
+    {
+        if (!ops[i])
+        {
+            continue;
+        }
+        if (theta_data_get_type(ops[i]) == UNION)
+        {
+            ops[i] = theta_union_get_result(ops[i]);
+        }
+        else if (theta_data_get_type(ops[i]) == INTERSECTION)
+        {
+            ops[i] = theta_intersection_get_result(ops[i]);
+        }
+        theta_union_update_with_sketch(u, ops[i]);
+        theta_sketch_delete(ops[i]);
+    }
+
+    return TO_HND(u);
+}
+
+extension_state_t
+extension_sketch_handle_intersection_merge(
+    extension_state_t left,
+    extension_state_t right)
+{
+    if (!VALID_HANDLE(left) && VALID_HANDLE(right))
+    {
+        theta_sketch_delete(TO_PTR(right));
+        return NO_HANDLE;
+    }
+    if (VALID_HANDLE(left) && !VALID_HANDLE(right))
+    {
+        theta_sketch_delete(TO_PTR(left));
+        return NO_HANDLE;
+    }
+
+    void* x = nullptr;
+    void* ops[2] = { 0 };
+    if (theta_data_get_type(TO_PTR(left)) == INTERSECTION)
+    {
+        x = TO_PTR(left);
+        ops[0] = TO_PTR(right);
+    }
+    else if (theta_data_get_type(TO_PTR(right)) == INTERSECTION)
+    {
+        x = TO_PTR(right);
+        ops[0] = TO_PTR(left);
+    }
+    else
+    {
+        x = theta_intersection_new_default();
+        theta_data_set_type(x, INTERSECTION);
+        ops[0] = TO_PTR(left);
+        ops[1] = TO_PTR(right);
+    }
+
+    for (int i = 0; i < 2; ++i)
+    {
+        if (!ops[i])
+        {
+            continue;
+        }
+        if (theta_data_get_type(ops[i]) == INTERSECTION)
+        {
+            ops[i] = theta_intersection_get_result(ops[i]);
+        }
+        else if (theta_data_get_type(ops[i]) == UNION)
+        {
+            ops[i] = theta_union_get_result(ops[i]);
+        }
+        theta_intersection_update_with_sketch(x, ops[i]);
+        theta_sketch_delete(ops[i]);
+    }
+
+    return TO_HND(x);
+}
+
+void
+extension_sketch_handle_serialize(
+    extension_state_t handle,
+    extension_list_u8_t *output)
 {
     auto state = TO_PTR(handle);
     if (!VALID_HANDLE(handle))
@@ -220,7 +486,9 @@ void extension_sketch_agg_serialize_handle(extension_state_t handle, extension_l
     theta_sketch_delete(state);
 }
 
-extension_state_t extension_sketch_agg_deserialize_handle(extension_list_u8_t *data)
+extension_state_t
+extension_sketch_handle_deserialize(
+    extension_list_u8_t *data)
 {
     auto stateptr = theta_sketch_deserialize(data);
     theta_data_set_type(stateptr, IMMUTABLE_SKETCH);
@@ -228,7 +496,7 @@ extension_state_t extension_sketch_agg_deserialize_handle(extension_list_u8_t *d
     return TO_HND(stateptr);
 }
 
-double extension_sketch_estimate(extension_list_u8_t* data)
+double extension_sketch_get_estimate(extension_list_u8_t* data)
 {
     auto sketchptr = theta_sketch_deserialize(data);
     auto estimate = theta_sketch_get_estimate(sketchptr);
@@ -237,10 +505,71 @@ double extension_sketch_estimate(extension_list_u8_t* data)
     return estimate;
 }
 
-void extension_sketch_to_string(extension_list_u8_t *data, extension_string_t *ret0)
+void
+extension_sketch_union(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *output)
+{
+    void* unionptr = theta_union_new_default();
+    theta_union_update_with_bytes(unionptr, left);
+    theta_union_update_with_bytes(unionptr, right);
+
+    void* sketchptr = theta_union_get_result(unionptr);
+    theta_sketch_serialize(sketchptr, output);
+
+    free(left->ptr);
+    free(right->ptr);
+    theta_sketch_delete(sketchptr);
+}
+
+void
+extension_sketch_intersection(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *output)
+{
+    void* interptr = theta_intersection_new_default();
+    theta_intersection_update_with_bytes(interptr, left);
+    theta_intersection_update_with_bytes(interptr, right);
+
+    void* sketchptr = theta_intersection_get_result(interptr);
+    theta_sketch_serialize(sketchptr, output);
+
+    free(left->ptr);
+    free(right->ptr);
+    theta_sketch_delete(sketchptr);
+}
+
+void
+extension_sketch_a_not_b(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *output)
+{
+    void* sketchptr = theta_anotb(left, right);
+    free(left->ptr);
+    free(right->ptr);
+    theta_sketch_serialize(sketchptr, output);
+    theta_sketch_delete(sketchptr);
+}
+
+void 
+extension_sketch_to_string(
+    extension_list_u8_t *data,
+    extension_string_t *ret)
 {
     auto sketchptr = theta_sketch_deserialize(data);
-    theta_sketch_to_string(sketchptr, ret0);
+    theta_sketch_to_string(sketchptr, ret);
+    free(data->ptr);
     theta_sketch_delete(sketchptr);
+}
+
+uint64_t extension_sketch_hash(extension_list_u8_t *data)
+{
+    HashState hashes;
+    MurmurHash3_x64_128(data->ptr, data->len, DEFAULT_SEED, hashes);
+    free(data->ptr);
+    return (hashes.h1 >> 1);
 }
 

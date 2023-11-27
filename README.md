@@ -6,26 +6,75 @@
 e.g. union, intersection, ..
 
 ## Contents
-This library provides the following User Defined Aggregates (UDAFs) and UDFs (User Defined Functions).
+This library provides the following User Defined Aggregates (UDAFs) and UDFs (User Defined Functions).  Since SingleStoreDB does not support function name overloading, we shall distinguish between UDAFs and UDFs by suffixing each UDAFs with `_agg`.  For those with familiarity, the interface has been intentionally designed to mimic the Theta Sketch API of the (datasketches)[https://github.com/apache/datasketches-postgresql] extension for Postgresql.
 
-### `theta_sketch_agg` (UDAF)
+### `theta_sketch_build_agg` (UDAF)
 - **Type**: Aggregate
-- **Syntax**: `THETA_SKETCH_AGG(col)`
-- **Arguments**: The column from which to create a theta sketch.
-- **Return Type**: The theta sketch representation as a BLOB.
+- **Syntax**: `THETA_SKETCH_BUILD_AGG(BLOB)`
+- **Arguments**: The column containing the raw data from which to create a theta sketch.
+- **Return Type**: The theta sketch representation, as a `BLOB`.
 - **Description**: This is a UDAF that will generate a theta sketch from a column of data and return it as a serialized blob.
 
-### `sketch_estimate` (UDF)
+### `theta_sketch_build_raw_agg` (UDAF)
+- **Type**: Aggregate
+- **Syntax**: `THETA_SKETCH_BUILD_RAW_AGG(BLOB)`
+- **Arguments**: The column containing pre-computed hashes from which to create a theta sketch.  This column should *not* contain the blobs themselves.
+- **Return Type**: The theta sketch representation, as a `BLOB`.
+- **Description**: This is a UDAF that will generate a theta sketch from a column of hashes and return it as a serialized blob.  If it makes sense for your use case, this function can be used in conjunction with the `theta_sketch_hash` build a theta sketch from precomputed hashes.  Doing this allows the theta sketch generation to be decoupled from the hashing algorithm, providing significantly improved performance.  For example, you might generate a theta sketch hash each time a row is inserted and run this aggregate on the hash column instead of the raw data.
+
+### `theta_sketch_intersection_agg` (UDAF)
+- **Type**: Aggregate
+- **Syntax**: `THETA_SKETCH_INTERSECTION_AGG(BLOB)`
+- **Arguments**: The column containing the raw data from which to create a theta sketch.
+- **Return Type**: The theta sketch representation, as a `BLOB`.
+- **Description**: This is a UDAF that will generate a theta sketch using the intersection operation against all rows in a column of data.  The sketch is returned as a serialized blob.
+
+### `theta_sketch_union_agg` (UDAF)
+- **Type**: Aggregate
+- **Syntax**: `THETA_SKETCH_UNION_AGG(BLOB)`
+- **Arguments**: The column containing the raw data from which to create a theta sketch.
+- **Return Type**: The theta sketch representation, as a `BLOB`.
+- **Description**: This is a UDAF that will generate a theta sketch using the union operation against all rows in a column of data.  The sketch is returned as a serialized blob.
+
+### `theta_sketch_get_estimate` (UDF)
 - **Type**: Scalar Function
-- **Syntax**: `SKETCH_ESTIMATE(blob)`
-- **Arguments**: A theta sketch blob generated using `theta_sketch_agg`.
+- **Syntax**: `THETA_SKETCH_GET_ESTIMATE(SKETCH)`
+- **Arguments**: A serialized theta sketch blob that has been generated using one of the above aggregate functions or one of the scalar functions `theta_sketch_union`, `theta_sketch_intersection`, or `theta_sketch_a_not_b`.
 - **Return Type**: The theta sketch estimate, as a `DOUBLE`.
 - **Description**: This is a UDF that takes a single serialized theta sketch and estimates the number of unique samples in it.
 
-### `sketch_to_string` (UDF)
+### `theta_sketch_union` (UDF)
 - **Type**: Scalar Function
-- **Syntax**: `SKETCH_TO_STRING(blob)`
-- **Arguments**: A theta sketch blob generated using `theta_sketch_agg`.
+- **Syntax**: `THETA_SKETCH_UNION(SKETCH, SKETCH)`
+- **Arguments**: Two serialized theta sketch blobs that have been generated using one of the above aggregate functions or one of the scalar functions `theta_sketch_union`, `theta_sketch_intersection`, or `theta_sketch_a_not_b`.
+- **Return Type**: A new theta sketch, as a `BLOB`.
+- **Description**: This is a UDF that takes two serialized theta sketches and combines them using the union operation.  A new theta sketch blob is returned.
+
+### `theta_sketch_intersection` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_INTERSECTION(SKETCH, SKETCH)`
+- **Arguments**: Two serialized theta sketch blobs that have been generated using one of the above aggregate functions or one of the scalar functions `theta_sketch_union`, `theta_sketch_intersection`, or `theta_sketch_a_not_b`.
+- **Return Type**: A new theta sketch, as a `BLOB`.
+- **Description**: This is a UDF that takes two serialized theta sketches and combines them using the intersection operation.  A new theta sketch blob is returned.
+
+### `theta_sketch_a_not_b` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_A_NOT_B(SKETCH, SKETCH)`
+- **Arguments**: Two serialized theta sketch blobs that have been generated using one of the above aggregate functions or one of the scalar functions `theta_sketch_union`, `theta_sketch_intersection`, or `theta_sketch_a_not_b`.
+- **Return Type**: A new theta sketch, as a `BLOB`.
+- **Description**: This is a UDF that takes two serialized theta sketches and combines them using the set difference operation.  A new theta sketch blob is returned.
+
+### `theta_sketch_hash` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `THETA_SKETCH_HASH(BLOB)`
+- **Arguments**: An arbitrary `BLOB` of data from which to generate a hash suitable for theta sketch indexing.
+- **Return Type**: The hash value, as a `BIGINT`.
+- **Description**: This is UDF is intended to be used in conjunction with the UDAF `theta_sketch_build_raw_agg`.  It will generate a 64-bit hash value from a `BLOB` of data that can then be stored directly in a theta sketch.  See `theta_sketch_build_raw_agg` for more information.
+
+### `theta_sketch_to_string` (UDF)
+- **Type**: Scalar Function
+- **Syntax**: `SKETCH_TO_STRING(BLOB)`
+- **Arguments**: A serialized theta sketch blob that has been generated using one of the above aggregate functions.
 - **Return Type**: A string containing diagnostic information.
 - **Description**: This is a UDF that takes a single serialized theta sketch and returns a string containing diagnostic information about it.
 
@@ -47,21 +96,31 @@ mysql -u $DBUSER -h $DBHOST -P $DBPORT -D $DBNAME -p < load_extension.sql
 ```
 
 ### Usage
-The following is simple example that creates a table with two columns of integers.  It generates a union-based theta sketch for each column, merges them into another union, and then computes the estimate of the merged theta sketch.
+The following is simple example that creates a table with two columns of integers.  It generates a theta sketch for the `data` column and then computes its estimate.
 ```sql
-CREATE TABLE IF NOT EXISTS sketch_input(id1 int, id2 int);
-INSERT INTO sketch_input VALUES (1, 2), (2, 4), (3, 6), (4, 8), (5, 10), (6, 12), (7, 14), (8, 16), (9, 18), (10, 20);
+CREATE TABLE IF NOT EXISTS sketch_input(data BLOB);
+INSERT INTO sketch_input VALUES ("doing"), ("some"), ("thetasketch"), ("stuff");
 
-SELECT sketch_estimate(theta_sketch_agg(id1)) FROM sketch_input;
+SELECT theta_sketch_get_estimate(theta_sketch_build_agg(data)) FROM sketch_input;
 ```
 
-This next example is similar to the above one, except that it shows how to "save" the theta sketches in User-Defined Variables so they can be re-used.
+This next example is similar to the above one, except that it shows how to "save" the theta sketche in a User-Defined Variables so it can be re-used.
 ```sql
-CREATE TABLE IF NOT EXISTS sketch_input(id1 int, id2 int);
-INSERT INTO sketch_input VALUES (1, 2), (2, 4), (3, 6), (4, 8), (5, 10), (6, 12), (7, 14), (8, 16), (9, 18), (10, 20);
+CREATE TABLE IF NOT EXISTS sketch_input(data BLOB);
+INSERT INTO sketch_input VALUES ("doing"), ("some"), ("thetasketch"), ("stuff");
 
-SELECT theta_sketch_agg(id1) FROM sketch_input INTO @sketch1;
-SELECT sketch_estimate(@sketch1);
+SELECT theta_sketch_build_agg(data) FROM sketch_input INTO @sketch1;
+SELECT theta_sketch_get_estimate(@sketch1);
+```
+
+This example shows how to pre-compute hashes and then later generate a theta sketch from them.
+```sql
+CREATE TABLE IF NOT EXISTS sketch_input(data BIGINT);
+CREATE TABLE IF NOT EXISTS sketch_hashes(hash BIGINT);
+INSERT INTO sketch_input(data) VALUES ("doing"), ("some"), ("thetasketch"), ("stuff");
+INSERT INTO sketch_hashes(hash) SELECT theta_sketch_hash(data) hash FROM sketch_input;
+
+SELECT theta_sketch_get_estimate(theta_sketch_build_raw_agg(hash)) FROM sketch_hashes;
 ```
 
 ## Additional Information

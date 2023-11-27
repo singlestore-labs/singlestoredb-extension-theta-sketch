@@ -51,6 +51,7 @@ struct theta_update_sketch_base {
   using iterator = Entry*;
 
   inline uint64_t hash_and_screen(const void* data, size_t length);
+  inline uint64_t screen(const uint64_t hash);
 
   inline std::pair<iterator, bool> find(uint64_t key) const;
   static inline std::pair<iterator, bool> find(Entry* entries, uint8_t lg_size, uint64_t key);

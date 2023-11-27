@@ -22,13 +22,21 @@ extern "C"
     size_t len;
   } extension_list_u8_t;
   void extension_list_u8_free(extension_list_u8_t *ptr);
-  double extension_sketch_estimate(extension_list_u8_t *data);
+  double extension_sketch_get_estimate(extension_list_u8_t *data);
+  void extension_sketch_union(extension_list_u8_t *left, extension_list_u8_t *right, extension_list_u8_t *ret0);
+  void extension_sketch_intersection(extension_list_u8_t *left, extension_list_u8_t *right, extension_list_u8_t *ret0);
+  void extension_sketch_a_not_b(extension_list_u8_t *left, extension_list_u8_t *right, extension_list_u8_t *ret0);
+  uint64_t extension_sketch_hash(extension_list_u8_t *data);
   void extension_sketch_to_string(extension_list_u8_t *data, extension_string_t *ret0);
-  extension_state_t extension_sketch_agg_init_handle(void);
-  extension_state_t extension_sketch_agg_update_handle(extension_state_t state, extension_list_u8_t *input);
-  extension_state_t extension_sketch_agg_merge_handle(extension_state_t left, extension_state_t right);
-  void extension_sketch_agg_serialize_handle(extension_state_t state, extension_list_u8_t *ret0);
-  extension_state_t extension_sketch_agg_deserialize_handle(extension_list_u8_t *data);
+  extension_state_t extension_sketch_handle_init(void);
+  extension_state_t extension_sketch_handle_build_accum(extension_state_t state, extension_list_u8_t *input);
+  extension_state_t extension_sketch_handle_build_accum_raw(extension_state_t state, uint64_t input);
+  extension_state_t extension_sketch_handle_union_accum(extension_state_t state, extension_list_u8_t *input);
+  extension_state_t extension_sketch_handle_intersection_accum(extension_state_t state, extension_list_u8_t *input);
+  extension_state_t extension_sketch_handle_union_merge(extension_state_t left, extension_state_t right);
+  extension_state_t extension_sketch_handle_intersection_merge(extension_state_t left, extension_state_t right);
+  void extension_sketch_handle_serialize(extension_state_t state, extension_list_u8_t *ret0);
+  extension_state_t extension_sketch_handle_deserialize(extension_list_u8_t *data);
   #ifdef __cplusplus
 }
 #endif

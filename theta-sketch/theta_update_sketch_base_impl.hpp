@@ -144,6 +144,13 @@ uint64_t theta_update_sketch_base<EN, EK, A>::hash_and_screen(const void* data, 
 }
 
 template<typename EN, typename EK, typename A>
+uint64_t theta_update_sketch_base<EN, EK, A>::screen(const uint64_t hash) {
+  is_empty_ = false;
+  if (hash >= theta_) return 0; // hash == 0 is reserved to mark empty slots in the table
+  return hash;
+}
+
+template<typename EN, typename EK, typename A>
 auto theta_update_sketch_base<EN, EK, A>::find(uint64_t key) const -> std::pair<iterator, bool> {
   return find(entries_, lg_cur_size_, key);
 }

@@ -13,14 +13,16 @@ ADDR __wasm_export_extension_sketch_agg_serialize_handle(HANDLE arg);
 HANDLE __wasm_export_extension_sketch_agg_deserialize_handle(ADDR arg, SIZE arg0);
 ADDR __wasm_export_extension_sketch_to_string(ADDR arg, SIZE arg0);
 
-int main1(int argc, char* argv[])
+int main(int argc, char* argv[])
 {
     HANDLE s1 = __wasm_export_extension_sketch_agg_init_handle();
     printf("S1=%ld\n", s1);
     HANDLE u = s1;
     for (int i = 0; i < 1000000; ++i)
     {
-        u = __wasm_export_extension_sketch_agg_update_handle(u, (int64_t) &i, sizeof(int));
+        int* ix = (int*) malloc(sizeof(int));
+        *ix = i;
+        u = __wasm_export_extension_sketch_agg_update_handle(u, (int64_t) ix, sizeof(int));
         //printf("u==%d\n", u);
     }
     s1 = u;
@@ -30,7 +32,9 @@ int main1(int argc, char* argv[])
     u = s2;
     for (int i = 0; i < 1000000; ++i)
     {
-        u = __wasm_export_extension_sketch_agg_update_handle(u, (int64_t) &i, sizeof(int));
+        int* ix = (int*) malloc(sizeof(int));
+        *ix = i;
+        u = __wasm_export_extension_sketch_agg_update_handle(u, (int64_t) ix, sizeof(int));
     }
     s2 = u;
     printf("S2=%ld\n", s2);
@@ -59,14 +63,15 @@ int main1(int argc, char* argv[])
     return 0;
 }
 
-int main(int argc, char* argv[])
+int main1(int argc, char* argv[])
 {
     HANDLE s1 = __wasm_export_extension_sketch_agg_init_handle();
     printf("S1=%ld\n", s1);
 
 #define THING "\x01\x03\x03\x00\x00\x3A\xCC\x93\x00\x01\xBF\xAB\xF4\x6A\x96\x0D"
-    const char* ptr = THING;
     size_t size = sizeof(THING);
+    char* ptr = (char*) malloc(size);
+    memcpy(ptr, THING, size);
 
     HANDLE u = __wasm_export_extension_sketch_agg_update_handle(s1, (int64_t) ptr, size);
     printf("U=%ld\n", u);

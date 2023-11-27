@@ -209,6 +209,16 @@ void update_theta_sketch_alloc<A>::update(const void* data, size_t length) {
 }
 
 template<typename A>
+void update_theta_sketch_alloc<A>::update_raw(const uint64_t _hash) {
+  const uint64_t hash = table_.screen(_hash);
+  if (hash == 0) return;
+  auto result = table_.find(hash);
+  if (!result.second) {
+    table_.insert(result.first, hash);
+  }
+}
+
+template<typename A>
 void update_theta_sketch_alloc<A>::trim() {
   table_.trim();
 }
