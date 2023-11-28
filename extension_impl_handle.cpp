@@ -18,92 +18,9 @@ using namespace datasketches;
 #define TO_HND(x_) (reinterpret_cast<extension_state_t>(x_))
 #define TO_PTR(x_) (reinterpret_cast<void*>(x_))
 #define VALID_HANDLE(s_) (TO_HND(s_) != NO_HANDLE)
+#define BAIL(...) { fprintf(stderr, __VA_ARGS__); abort(); }
+#define BAIL_IF(cond_, ...) { if (cond_) { BAIL(__VA_ARGS__); } }
 
-#define MAX_PAGE_SIZE 8192
-
-struct page
-{
-    struct page* next;
-    uint64_t data[MAX_PAGE_SIZE];
-};
-
-page* free_pages = nullptr;
-
-
-template <class T> class s2alloc {
-public:
-  typedef T                 value_type;
-  typedef value_type*       pointer;
-  typedef const value_type* const_pointer;
-  typedef value_type&       reference;
-  typedef const value_type& const_reference;
-  typedef std::size_t       size_type;
-  typedef std::ptrdiff_t    difference_type;
-
-  template <class U>
-  struct rebind { typedef s2alloc<U> other; };
-
-  s2alloc() = default;
-  template <class U>
-  s2alloc(const s2alloc<U>&) {}
-
-  pointer address(reference x) const { return &x; }
-  const_pointer address(const_reference x) const {
-    return &x;
-  }
-
-  pointer allocate(size_type n, const_pointer = 0) {
-      /*
-    if (n > MAX_PAGE_SIZE)
-    {
-        abort();
-    }
-
-    page* p = free_pages;
-    if (!p)
-    {
-        p = (page*) malloc(sizeof(page));
-    }
-    else
-    {
-        free_pages = p->next;
-        p->next = nullptr;
-    }
-    */
-
-    void* p = malloc(n * sizeof(T));
-    //printf("MALLOC %zu: %p\n", n, p);
-    //return static_cast<pointer>((T*) &p->data[0]);
-    return static_cast<pointer>(p);
-  }
-
-  void deallocate(pointer p, size_type) {
-      //printf("FREE %p\n", p);
-      if (p)
-      {
-          //page* pg = (page*) ((char*) p - sizeof(uintptr_t));
-          free(p);
-          //pg->next = free_pages;
-          //free_pages = pg;
-      }
-  }
-
-  size_type max_size() const {
-    return static_cast<size_type>(-1) / sizeof(T);
-  }
-
-  template<typename... Args>
-  void construct(pointer p, Args&&... args) {
-    new(p) value_type(std::forward<Args>(args)...);
-  }
-  void destroy(pointer p) { p->~value_type(); }
-};
-
-//using s2_theta_sketch = theta_sketch_alloc<s2alloc<uint64_t>>;
-//using s2_update_theta_sketch = update_theta_sketch_alloc<s2alloc<uint64_t>>;
-//using s2_compact_theta_sketch = compact_theta_sketch_alloc<s2alloc<uint64_t>>;
-//using s2_theta_union = theta_union_alloc<s2alloc<uint64_t>>;
-//using s2_theta_intersection = theta_intersection_alloc<s2alloc<uint64_t>>;
 using s2_theta_sketch = theta_sketch;
 using s2_update_theta_sketch = update_theta_sketch;
 using s2_compact_theta_sketch = compact_theta_sketch;
@@ -170,9 +87,9 @@ static void theta_sketch_update(void* sketchptr, const void* data, unsigned leng
     static_cast<update_theta_sketch*>(sketchptr)->update(data, length);
 }
 
-static void theta_sketch_update_raw(void* sketchptr, const uint64_t hash)
+static void theta_sketch_update_by_hash(void* sketchptr, const uint64_t hash)
 {
-    static_cast<update_theta_sketch*>(sketchptr)->update_raw(hash);
+    static_cast<update_theta_sketch*>(sketchptr)->update_by_hash(hash);
 }
 
 static void theta_data_set_type(void* dataptr, agg_state_type t)
@@ -199,6 +116,21 @@ static void* theta_intersection_get_result(void* interptr)
     auto sketchptr = new compact_theta_sketch(i->get_result());
     theta_intersection_delete(i);
     return sketchptr;
+}
+
+static void* theta_data_get_result(void* dataptr)
+{
+    switch (theta_data_get_type(dataptr))
+    {
+        case UNION:
+            return theta_union_get_result(dataptr);
+
+        case INTERSECTION:
+            return theta_intersection_get_result(dataptr);
+
+        default:
+            return dataptr;
+    }
 }
 
 static void theta_union_update_with_sketch(void* unionptr, const void* sketchptr)
@@ -238,7 +170,7 @@ static void theta_sketch_serialize(const void* sketchptr, extension_list_u8_t* o
     auto s = static_cast<const compact_theta_sketch*>(sketchptr);
     if (!s->serialize2(&bytes, &size))
     {
-        abort();
+        BAIL("Failed to serialize theta sketch");
     }
     output->ptr = bytes;
     output->len = size;
@@ -255,13 +187,13 @@ static double theta_sketch_get_estimate(const void* sketchptr)
     return static_cast<const theta_sketch*>(sketchptr)->get_estimate();
 }
 
-static void theta_sketch_to_string(void* sketchptr, extension_string_t *ret0)
+static void theta_sketch_to_string(void* sketchptr, extension_string_t *output)
 {
     auto str = static_cast<const theta_sketch*>(sketchptr)->to_string();
-    ret0->len = str.length() + 1;
-    char* buffer = (char*) malloc(ret0->len);
-    strncpy(buffer, str.c_str(), ret0->len);
-    ret0->ptr = buffer;
+    output->len = str.length() + 1;
+    char* buffer = (char*) malloc(output->len);
+    strncpy(buffer, str.c_str(), output->len);
+    output->ptr = buffer;
 }
 
 static void*
@@ -287,6 +219,11 @@ extension_sketch_handle_build_accum(
     extension_state_t handle, 
     extension_list_u8_t *input)
 {
+    if (!input)
+    {
+        return handle;
+    }
+
     void* state = TO_PTR(handle);
     if (!VALID_HANDLE(handle))
     {
@@ -294,12 +231,27 @@ extension_sketch_handle_build_accum(
         theta_data_set_type(state, MUTABLE_SKETCH);
     }
     theta_sketch_update(state, input->ptr, input->len);
-    free(input->ptr);
+    extension_list_u8_free(input);
     return TO_HND(state);
 }
 
 extension_state_t
-extension_sketch_handle_build_accum_raw(
+extension_sketch_handle_build_accum_emptyisnull(
+    extension_state_t handle, 
+    extension_list_u8_t *input)
+{
+    // If input is empty string, no update needed.
+    //
+    if (!input->len)
+    {
+        extension_list_u8_free(input);
+        input = nullptr;
+    }
+    return extension_sketch_handle_build_accum(handle, input);
+}
+
+extension_state_t
+extension_sketch_handle_build_accum_by_hash(
     extension_state_t handle,
     uint64_t input)
 {
@@ -309,8 +261,20 @@ extension_sketch_handle_build_accum_raw(
         state = theta_sketch_new_default();
         theta_data_set_type(state, MUTABLE_SKETCH);
     }
-    theta_sketch_update_raw(state, input);
+    theta_sketch_update_by_hash(state, input);
     return TO_HND(state);
+}
+
+extension_state_t
+extension_sketch_handle_build_accum_by_hash_emptyisnull(
+    extension_state_t handle,
+    uint64_t input)
+{
+    if (!input)
+    {
+        return handle;
+    }
+    return extension_sketch_handle_build_accum_by_hash(handle, input);
 }
 
 extension_state_t
@@ -318,6 +282,11 @@ extension_sketch_handle_union_accum(
     extension_state_t handle,
     extension_list_u8_t *input)
 {
+    if (!input)
+    {
+        return handle;
+    }
+
     void* state = TO_PTR(handle);
     if (!VALID_HANDLE(handle))
     {
@@ -325,8 +294,23 @@ extension_sketch_handle_union_accum(
         theta_data_set_type(state, UNION);
     }
     theta_union_update_with_bytes(state, input);
-    free(input->ptr);
+    extension_list_u8_free(input);
     return TO_HND(state);
+}
+
+extension_state_t
+extension_sketch_handle_union_accum_emptyisnull(
+    extension_state_t handle,
+    extension_list_u8_t *input)
+{
+    // If input is empty string, no update needed.
+    //
+    if (!input->len)
+    {
+        extension_list_u8_free(input);
+        input = nullptr;
+    }
+    return extension_sketch_handle_union_accum(handle, input);
 }
 
 extension_state_t
@@ -334,6 +318,11 @@ extension_sketch_handle_intersection_accum(
     extension_state_t handle,
     extension_list_u8_t *input)
 {
+    if (!input)
+    {
+        return handle;
+    }
+
     void* state = TO_PTR(handle);
     if (!VALID_HANDLE(handle))
     {
@@ -341,8 +330,23 @@ extension_sketch_handle_intersection_accum(
         theta_data_set_type(state, INTERSECTION);
     }
     theta_intersection_update_with_bytes(state, input);
-    free(input->ptr);
+    extension_list_u8_free(input);
     return TO_HND(state);
+}
+
+extension_state_t
+extension_sketch_handle_intersection_accum_emptyisnull(
+    extension_state_t handle,
+    extension_list_u8_t *input)
+{
+    // If input is empty string, no update needed.
+    //
+    if (!input->len)
+    {
+        extension_list_u8_free(input);
+        input = nullptr;
+    }
+    return extension_sketch_handle_intersection_accum(handle, input);
 }
 
 extension_state_t
@@ -350,51 +354,24 @@ extension_sketch_handle_union_merge(
     extension_state_t left,
     extension_state_t right)
 {
-    if (!VALID_HANDLE(left) && VALID_HANDLE(right))
+    if (!VALID_HANDLE(left) && !VALID_HANDLE(right))
     {
-        return right;
-    }
-    if (VALID_HANDLE(left) && !VALID_HANDLE(right))
-    {
-        return left;
+        return NO_HANDLE;
     }
 
-    void* u = nullptr;
-    void* ops[2] = { 0 };
-    if (theta_data_get_type(TO_PTR(left)) == UNION)
+    void* u = theta_union_new_default();
+    theta_data_set_type(u, UNION);
+    if (VALID_HANDLE(left))
     {
-        u = TO_PTR(left);
-        ops[0] = TO_PTR(right);
+        auto lptr = theta_data_get_result(TO_PTR(left));
+        theta_union_update_with_sketch(u, lptr);
+        theta_sketch_delete(lptr);
     }
-    else if (theta_data_get_type(TO_PTR(right)) == UNION)
+    if (VALID_HANDLE(right))
     {
-        u = TO_PTR(right);
-        ops[0] = TO_PTR(left);
-    }
-    else
-    {
-        u = theta_union_new_default();
-        theta_data_set_type(u, UNION);
-        ops[0] = TO_PTR(left);
-        ops[1] = TO_PTR(right);
-    }
-
-    for (int i = 0; i < 2; ++i)
-    {
-        if (!ops[i])
-        {
-            continue;
-        }
-        if (theta_data_get_type(ops[i]) == UNION)
-        {
-            ops[i] = theta_union_get_result(ops[i]);
-        }
-        else if (theta_data_get_type(ops[i]) == INTERSECTION)
-        {
-            ops[i] = theta_intersection_get_result(ops[i]);
-        }
-        theta_union_update_with_sketch(u, ops[i]);
-        theta_sketch_delete(ops[i]);
+        auto rptr = theta_data_get_result(TO_PTR(right));
+        theta_union_update_with_sketch(u, rptr);
+        theta_sketch_delete(rptr);
     }
 
     return TO_HND(u);
@@ -405,53 +382,24 @@ extension_sketch_handle_intersection_merge(
     extension_state_t left,
     extension_state_t right)
 {
-    if (!VALID_HANDLE(left) && VALID_HANDLE(right))
+    if (!VALID_HANDLE(left) && !VALID_HANDLE(right))
     {
-        theta_sketch_delete(TO_PTR(right));
-        return NO_HANDLE;
-    }
-    if (VALID_HANDLE(left) && !VALID_HANDLE(right))
-    {
-        theta_sketch_delete(TO_PTR(left));
         return NO_HANDLE;
     }
 
-    void* x = nullptr;
-    void* ops[2] = { 0 };
-    if (theta_data_get_type(TO_PTR(left)) == INTERSECTION)
+    void* x = theta_intersection_new_default();
+    theta_data_set_type(x, INTERSECTION);
+    if (VALID_HANDLE(left))
     {
-        x = TO_PTR(left);
-        ops[0] = TO_PTR(right);
+        auto lptr = theta_data_get_result(TO_PTR(left));
+        theta_intersection_update_with_sketch(x, lptr);
+        theta_sketch_delete(lptr);
     }
-    else if (theta_data_get_type(TO_PTR(right)) == INTERSECTION)
+    if (VALID_HANDLE(right))
     {
-        x = TO_PTR(right);
-        ops[0] = TO_PTR(left);
-    }
-    else
-    {
-        x = theta_intersection_new_default();
-        theta_data_set_type(x, INTERSECTION);
-        ops[0] = TO_PTR(left);
-        ops[1] = TO_PTR(right);
-    }
-
-    for (int i = 0; i < 2; ++i)
-    {
-        if (!ops[i])
-        {
-            continue;
-        }
-        if (theta_data_get_type(ops[i]) == INTERSECTION)
-        {
-            ops[i] = theta_intersection_get_result(ops[i]);
-        }
-        else if (theta_data_get_type(ops[i]) == UNION)
-        {
-            ops[i] = theta_union_get_result(ops[i]);
-        }
-        theta_intersection_update_with_sketch(x, ops[i]);
-        theta_sketch_delete(ops[i]);
+        auto rptr = theta_data_get_result(TO_PTR(right));
+        theta_intersection_update_with_sketch(x, rptr);
+        theta_sketch_delete(rptr);
     }
 
     return TO_HND(x);
@@ -462,24 +410,20 @@ extension_sketch_handle_serialize(
     extension_state_t handle,
     extension_list_u8_t *output)
 {
-    auto state = TO_PTR(handle);
     if (!VALID_HANDLE(handle))
     {
-        state = theta_sketch_new_default();
-        theta_data_set_type(state, MUTABLE_SKETCH);
+        output->ptr = nullptr;
+        output->len = 0;
+        return;
     }
+    auto state = TO_PTR(handle);
     switch (theta_data_get_type(state))
     {
         case MUTABLE_SKETCH:
             state = theta_sketch_compact(state);
             break;
-        case UNION:
-            state = theta_union_get_result(state);
-            break;
-        case INTERSECTION:
-            state = theta_intersection_get_result(state);
-            break;
         default:
+            state = theta_data_get_result(state);
             break;
     }
     theta_sketch_serialize(state, output);
@@ -490,19 +434,45 @@ extension_state_t
 extension_sketch_handle_deserialize(
     extension_list_u8_t *data)
 {
-    auto stateptr = theta_sketch_deserialize(data);
-    theta_data_set_type(stateptr, IMMUTABLE_SKETCH);
-    free(data->ptr);
-    return TO_HND(stateptr);
+    extension_state_t res;
+    if (data->len == 0)
+    {
+        res = NO_HANDLE;
+    }
+    else
+    {
+        auto stateptr = theta_sketch_deserialize(data);
+        theta_data_set_type(stateptr, IMMUTABLE_SKETCH);
+        res = TO_HND(stateptr);
+    }
+    extension_list_u8_free(data);
+    return res;
 }
 
 double extension_sketch_get_estimate(extension_list_u8_t* data)
 {
+    if (!data)
+    {
+        extension_list_u8_free(data);
+        return 0.0;
+    }
+    BAIL_IF(data->len < 8, "at least 8 bytes expected, actual %zu", data->len);
+
     auto sketchptr = theta_sketch_deserialize(data);
     auto estimate = theta_sketch_get_estimate(sketchptr);
     theta_sketch_delete(sketchptr);
-    free(data->ptr);
+    extension_list_u8_free(data);
     return estimate;
+}
+
+double extension_sketch_get_estimate_emptyisnull(extension_list_u8_t* data)
+{
+    if (!data->len)
+    {
+        extension_list_u8_free(data);
+        data = nullptr;
+    }
+    return extension_sketch_get_estimate(data);
 }
 
 void
@@ -512,15 +482,42 @@ extension_sketch_union(
     extension_list_u8_t *output)
 {
     void* unionptr = theta_union_new_default();
-    theta_union_update_with_bytes(unionptr, left);
-    theta_union_update_with_bytes(unionptr, right);
+    if (left)
+    {
+        BAIL_IF(left->len < 8, "at least 8 bytes expected, actual %zu", left->len);
+        theta_union_update_with_bytes(unionptr, left);
+    }
+    if (right)
+    {
+        BAIL_IF(right->len < 8, "at least 8 bytes expected, actual %zu", right->len);
+        theta_union_update_with_bytes(unionptr, right);
+    }
 
     void* sketchptr = theta_union_get_result(unionptr);
     theta_sketch_serialize(sketchptr, output);
 
-    free(left->ptr);
-    free(right->ptr);
+    if (left)  extension_list_u8_free(left);
+    if (right) extension_list_u8_free(right);
     theta_sketch_delete(sketchptr);
+}
+
+void
+extension_sketch_union_emptyisnull(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *output)
+{
+    if (!left->len)
+    {
+        extension_list_u8_free(left);
+        left = nullptr;
+    }
+    if (!right->len)
+    {
+        extension_list_u8_free(right);
+        right = nullptr;
+    }
+    extension_sketch_union(left, right, output);
 }
 
 void
@@ -530,15 +527,42 @@ extension_sketch_intersection(
     extension_list_u8_t *output)
 {
     void* interptr = theta_intersection_new_default();
-    theta_intersection_update_with_bytes(interptr, left);
-    theta_intersection_update_with_bytes(interptr, right);
+    if (left)
+    {
+        BAIL_IF(left->len < 8, "at least 8 bytes expected, actual %zu", left->len);
+        theta_intersection_update_with_bytes(interptr, left);
+    }
+    if (right)
+    {
+        BAIL_IF(right->len < 8, "at least 8 bytes expected, actual %zu", right->len);
+        theta_intersection_update_with_bytes(interptr, right);
+    }
 
     void* sketchptr = theta_intersection_get_result(interptr);
     theta_sketch_serialize(sketchptr, output);
 
-    free(left->ptr);
-    free(right->ptr);
+    if (left)  extension_list_u8_free(left);
+    if (right) extension_list_u8_free(right);
     theta_sketch_delete(sketchptr);
+}
+
+void
+extension_sketch_intersection_emptyisnull(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *output)
+{
+    if (!left->len)
+    {
+        extension_list_u8_free(left);
+        left = nullptr;
+    }
+    if (!right->len)
+    {
+        extension_list_u8_free(right);
+        right = nullptr;
+    }
+    extension_sketch_intersection(left, right, output);
 }
 
 void
@@ -547,11 +571,35 @@ extension_sketch_a_not_b(
     extension_list_u8_t *right,
     extension_list_u8_t *output)
 {
+    BAIL_IF(!left || !right, "a_not_b must have two valid sketches");
+    BAIL_IF(left->len < 8, "at least 8 bytes expected, actual %zu", left->len);
+    BAIL_IF(right->len < 8, "at least 8 bytes expected, actual %zu", right->len);
+
     void* sketchptr = theta_anotb(left, right);
-    free(left->ptr);
-    free(right->ptr);
     theta_sketch_serialize(sketchptr, output);
+
+    if (left) extension_list_u8_free(left);
+    if (right) extension_list_u8_free(right);
     theta_sketch_delete(sketchptr);
+}
+
+void
+extension_sketch_a_not_b_emptyisnull(
+    extension_list_u8_t *left,
+    extension_list_u8_t *right,
+    extension_list_u8_t *output)
+{
+    if (!left->len)
+    {
+        extension_list_u8_free(left);
+        left = nullptr;
+    }
+    if (!right->len)
+    {
+        extension_list_u8_free(right);
+        right = nullptr;
+    }
+    extension_sketch_a_not_b(left, right, output);
 }
 
 void 
@@ -559,17 +607,51 @@ extension_sketch_to_string(
     extension_list_u8_t *data,
     extension_string_t *ret)
 {
+    if (!data)
+    {
+        ret->ptr = nullptr;
+        ret->len = 0;
+        return;
+    }
+
     auto sketchptr = theta_sketch_deserialize(data);
     theta_sketch_to_string(sketchptr, ret);
-    free(data->ptr);
     theta_sketch_delete(sketchptr);
+    extension_list_u8_free(data);
+}
+
+void 
+extension_sketch_to_string_emptyisnull(
+    extension_list_u8_t *data,
+    extension_string_t *ret)
+{
+    if (!data->len)
+    {
+        extension_list_u8_free(data);
+        data = nullptr;
+    }
+    extension_sketch_to_string(data, ret);
 }
 
 uint64_t extension_sketch_hash(extension_list_u8_t *data)
 {
+    if (!data)
+    {
+        return 0;
+    }
     HashState hashes;
     MurmurHash3_x64_128(data->ptr, data->len, DEFAULT_SEED, hashes);
-    free(data->ptr);
+    extension_list_u8_free(data);
     return (hashes.h1 >> 1);
+}
+
+uint64_t extension_sketch_hash_emptyisnull(extension_list_u8_t *data)
+{
+    if (!data->len)
+    {
+        extension_list_u8_free(data);
+        data = nullptr;
+    }
+    return extension_sketch_hash(data);
 }
 

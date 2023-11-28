@@ -52,12 +52,29 @@ double __wasm_export_extension_sketch_get_estimate(int32_t arg, int32_t arg0) {
   double ret = extension_sketch_get_estimate(&arg1);
   return ret;
 }
+__attribute__((export_name("sketch-get-estimate-emptyisnull")))
+double __wasm_export_extension_sketch_get_estimate_emptyisnull(int32_t arg, int32_t arg0) {
+  extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  double ret = extension_sketch_get_estimate_emptyisnull(&arg1);
+  return ret;
+}
 __attribute__((export_name("sketch-union")))
 int32_t __wasm_export_extension_sketch_union(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
   extension_list_u8_t arg3 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
   extension_list_u8_t arg4 = (extension_list_u8_t) { (uint8_t*)(arg1), (size_t)(arg2) };
   extension_list_u8_t ret;
   extension_sketch_union(&arg3, &arg4, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-union-emptyisnull")))
+int32_t __wasm_export_extension_sketch_union_emptyisnull(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
+  extension_list_u8_t arg3 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_list_u8_t arg4 = (extension_list_u8_t) { (uint8_t*)(arg1), (size_t)(arg2) };
+  extension_list_u8_t ret;
+  extension_sketch_union_emptyisnull(&arg3, &arg4, &ret);
   int32_t ptr = (int32_t) &RET_AREA;
   *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
   *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
@@ -74,6 +91,17 @@ int32_t __wasm_export_extension_sketch_intersection(int32_t arg, int32_t arg0, i
   *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
   return ptr;
 }
+__attribute__((export_name("sketch-intersection-emptyisnull")))
+int32_t __wasm_export_extension_sketch_intersection_emptyisnull(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
+  extension_list_u8_t arg3 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_list_u8_t arg4 = (extension_list_u8_t) { (uint8_t*)(arg1), (size_t)(arg2) };
+  extension_list_u8_t ret;
+  extension_sketch_intersection_emptyisnull(&arg3, &arg4, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
 __attribute__((export_name("sketch-a-not-b")))
 int32_t __wasm_export_extension_sketch_a_not_b(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
   extension_list_u8_t arg3 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
@@ -85,10 +113,27 @@ int32_t __wasm_export_extension_sketch_a_not_b(int32_t arg, int32_t arg0, int32_
   *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
   return ptr;
 }
+__attribute__((export_name("sketch-a-not-b-emptyisnull")))
+int32_t __wasm_export_extension_sketch_a_not_b_emptyisnull(int32_t arg, int32_t arg0, int32_t arg1, int32_t arg2) {
+  extension_list_u8_t arg3 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_list_u8_t arg4 = (extension_list_u8_t) { (uint8_t*)(arg1), (size_t)(arg2) };
+  extension_list_u8_t ret;
+  extension_sketch_a_not_b_emptyisnull(&arg3, &arg4, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
 __attribute__((export_name("sketch-hash")))
 int64_t __wasm_export_extension_sketch_hash(int32_t arg, int32_t arg0) {
   extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
   uint64_t ret = extension_sketch_hash(&arg1);
+  return (int64_t) (ret);
+}
+__attribute__((export_name("sketch-hash-emptyisnull")))
+int64_t __wasm_export_extension_sketch_hash_emptyisnull(int32_t arg, int32_t arg0) {
+  extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  uint64_t ret = extension_sketch_hash_emptyisnull(&arg1);
   return (int64_t) (ret);
 }
 __attribute__((export_name("sketch-to-string")))
@@ -96,6 +141,16 @@ int32_t __wasm_export_extension_sketch_to_string(int32_t arg, int32_t arg0) {
   extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
   extension_string_t ret;
   extension_sketch_to_string(&arg1, &ret);
+  int32_t ptr = (int32_t) &RET_AREA;
+  *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
+  *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-to-string-emptyisnull")))
+int32_t __wasm_export_extension_sketch_to_string_emptyisnull(int32_t arg, int32_t arg0) {
+  extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_string_t ret;
+  extension_sketch_to_string_emptyisnull(&arg1, &ret);
   int32_t ptr = (int32_t) &RET_AREA;
   *((int32_t*)(ptr + 4)) = (int32_t) (ret).len;
   *((int32_t*)(ptr + 0)) = (int32_t) (ret).ptr;
@@ -112,9 +167,20 @@ int32_t __wasm_export_extension_sketch_handle_build_accum(int32_t arg, int32_t a
   extension_state_t ret = extension_sketch_handle_build_accum(arg, &arg2);
   return ret;
 }
-__attribute__((export_name("sketch-handle-build-accum-raw")))
-int32_t __wasm_export_extension_sketch_handle_build_accum_raw(int32_t arg, int64_t arg0) {
-  extension_state_t ret = extension_sketch_handle_build_accum_raw(arg, (uint64_t) (arg0));
+__attribute__((export_name("sketch-handle-build-accum-emptyisnull")))
+int32_t __wasm_export_extension_sketch_handle_build_accum_emptyisnull(int32_t arg, int32_t arg0, int32_t arg1) {
+  extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
+  extension_state_t ret = extension_sketch_handle_build_accum_emptyisnull(arg, &arg2);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-build-accum-by-hash")))
+int32_t __wasm_export_extension_sketch_handle_build_accum_by_hash(int32_t arg, int64_t arg0) {
+  extension_state_t ret = extension_sketch_handle_build_accum_by_hash(arg, (uint64_t) (arg0));
+  return ret;
+}
+__attribute__((export_name("sketch-handle-build-accum-by-hash-emptyisnull")))
+int32_t __wasm_export_extension_sketch_handle_build_accum_by_hash_emptyisnull(int32_t arg, int64_t arg0) {
+  extension_state_t ret = extension_sketch_handle_build_accum_by_hash_emptyisnull(arg, (uint64_t) (arg0));
   return ret;
 }
 __attribute__((export_name("sketch-handle-union-accum")))
@@ -123,10 +189,22 @@ int32_t __wasm_export_extension_sketch_handle_union_accum(int32_t arg, int32_t a
   extension_state_t ret = extension_sketch_handle_union_accum(arg, &arg2);
   return ret;
 }
+__attribute__((export_name("sketch-handle-union-accum-emptyisnull")))
+int32_t __wasm_export_extension_sketch_handle_union_accum_emptyisnull(int32_t arg, int32_t arg0, int32_t arg1) {
+  extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
+  extension_state_t ret = extension_sketch_handle_union_accum_emptyisnull(arg, &arg2);
+  return ret;
+}
 __attribute__((export_name("sketch-handle-intersection-accum")))
 int32_t __wasm_export_extension_sketch_handle_intersection_accum(int32_t arg, int32_t arg0, int32_t arg1) {
   extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
   extension_state_t ret = extension_sketch_handle_intersection_accum(arg, &arg2);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-intersection-accum-emptyisnull")))
+int32_t __wasm_export_extension_sketch_handle_intersection_accum_emptyisnull(int32_t arg, int32_t arg0, int32_t arg1) {
+  extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
+  extension_state_t ret = extension_sketch_handle_intersection_accum_emptyisnull(arg, &arg2);
   return ret;
 }
 __attribute__((export_name("sketch-handle-union-merge")))

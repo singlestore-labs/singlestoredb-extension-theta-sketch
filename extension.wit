@@ -8,22 +8,28 @@ type state = s32
 
 // Computes the theta value of the sketch
 sketch-get-estimate: func(data: list<u8>) -> float64
+sketch-get-estimate-emptyisnull: func(data: list<u8>) -> float64
 
 // Computes the union of two theta sketches.  Not for use in an aggregate.
 sketch-union: func(left: list<u8>, right: list<u8>) -> list<u8>
+sketch-union-emptyisnull: func(left: list<u8>, right: list<u8>) -> list<u8>
 
 // Computes the union of two theta sketches.  Not for use in an aggregate.
 sketch-intersection: func(left: list<u8>, right: list<u8>) -> list<u8>
+sketch-intersection-emptyisnull: func(left: list<u8>, right: list<u8>) -> list<u8>
 
 // Computes the difference of two theta sketches.  Not for use in an aggregate.
 sketch-a-not-b: func(left: list<u8>, right: list<u8>) -> list<u8>
+sketch-a-not-b-emptyisnull: func(left: list<u8>, right: list<u8>) -> list<u8>
 
-// For use with sketch-handle-build-agg-raw.  Computes a hash value suitable
+// For use with sketch-handle-build-by-hash-agg.  Computes a hash value suitable
 // direct update in a theta sketch aggregation.
 sketch-hash: func(data: list<u8>) -> u64
+sketch-hash-emptyisnull: func(data: list<u8>) -> u64
 
 // Returns string representation of the state.
 sketch-to-string: func(data: list<u8>) -> string
+sketch-to-string-emptyisnull: func(data: list<u8>) -> string
 
 ///////////////////////////////////////////////////////////////////////////////
 //
@@ -41,16 +47,20 @@ sketch-handle-init: func() -> state
 // Updates the state with the contents of a blob.  The blob is hashed
 // internally.
 sketch-handle-build-accum: func(state: state, input: list<u8>) -> state
+sketch-handle-build-accum-emptyisnull: func(state: state, input: list<u8>) -> state
 
 // Updates the state with a pre-hashed value.  The value is added directly
 // to the state.
-sketch-handle-build-accum-raw: func(state: state, input: u64) -> state
+sketch-handle-build-accum-by-hash: func(state: state, input: u64) -> state
+sketch-handle-build-accum-by-hash-emptyisnull: func(state: state, input: u64) -> state
 
 // Updates the state by creating a union of it with another sketch.
 sketch-handle-union-accum: func(state: state, input: list<u8>) -> state
+sketch-handle-union-accum-emptyisnull: func(state: state, input: list<u8>) -> state
 
 // Updates the state by intersecting it with another sketch.
 sketch-handle-intersection-accum: func(state: state, input: list<u8>) -> state
+sketch-handle-intersection-accum-emptyisnull: func(state: state, input: list<u8>) -> state
 
 // Merge //////////////////////////////////////////////////////////////////////
 

@@ -325,7 +325,7 @@ public:
    */
   void update(const void* data, size_t length);
 
-  void update_raw(const uint64_t hash);
+  void update_by_hash(const uint64_t hash);
 
   /**
    * Remove retained entries in excess of the nominal size k (if any)

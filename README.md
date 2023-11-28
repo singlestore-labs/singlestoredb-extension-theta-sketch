@@ -6,7 +6,9 @@
 e.g. union, intersection, ..
 
 ## Contents
-This library provides the following User Defined Aggregates (UDAFs) and UDFs (User Defined Functions).  Since SingleStoreDB does not support function name overloading, we shall distinguish between UDAFs and UDFs by suffixing each UDAFs with `_agg`.  For those with familiarity, the interface has been intentionally designed to mimic the Theta Sketch API of the (datasketches)[https://github.com/apache/datasketches-postgresql] extension for Postgresql.
+This library provides the following User Defined Aggregates (UDAFs) and UDFs (User Defined Functions).  Since SingleStoreDB does not support function name overloading, we shall distinguish between UDAFs and UDFs by suffixing each UDAFs with `_agg`.
+
+For those with familiarity, the interface has been intentionally designed to mimic the Theta Sketch API of the (datasketches)[https://github.com/apache/datasketches-postgresql] extension for Postgresql.  The notable exception is treatment of `NULL`-valued inputs.  SingleStoreDB does not yet support passing `NULL` values into Wasm, so the empty string (`''`) is treated as such.  This, of course, then precludes the generation of hashes from empty strings.
 
 ### `theta_sketch_build_agg` (UDAF)
 - **Type**: Aggregate
@@ -15,7 +17,7 @@ This library provides the following User Defined Aggregates (UDAFs) and UDFs (Us
 - **Return Type**: The theta sketch representation, as a `BLOB`.
 - **Description**: This is a UDAF that will generate a theta sketch from a column of data and return it as a serialized blob.
 
-### `theta_sketch_build_raw_agg` (UDAF)
+### `theta_sketch_build_by_hash_agg` (UDAF)
 - **Type**: Aggregate
 - **Syntax**: `THETA_SKETCH_BUILD_RAW_AGG(BIGINT)`
 - **Arguments**: The column containing pre-computed hashes (as `BIGINT`s) from which to create a theta sketch.  This column should *not* contain the blobs themselves.
@@ -69,7 +71,7 @@ This library provides the following User Defined Aggregates (UDAFs) and UDFs (Us
 - **Syntax**: `THETA_SKETCH_HASH(BLOB)`
 - **Arguments**: An arbitrary `BLOB` of data from which to generate a hash suitable for theta sketch indexing.
 - **Return Type**: The hash value, as a `BIGINT`.
-- **Description**: This is UDF is intended to be used in conjunction with the UDAF `theta_sketch_build_raw_agg`.  It will generate a 64-bit hash value from a `BLOB` of data that can then be stored directly in a theta sketch.  See `theta_sketch_build_raw_agg` for more information.
+- **Description**: This is UDF is intended to be used in conjunction with the UDAF `theta_sketch_build_by_hash_agg`.  It will generate a 64-bit hash value from a `BLOB` of data that can then be stored directly in a theta sketch.  See `theta_sketch_build_by_hash_agg` for more information.
 
 ### `theta_sketch_to_string` (UDF)
 - **Type**: Scalar Function
@@ -94,6 +96,8 @@ To install these functions using the MySQL client, use the following commands.  
 ```bash
 mysql -u $DBUSER -h $DBHOST -P $DBPORT -D $DBNAME -p < load_extension.sql
 ```
+
+To install the legacy version of this library, substitute `load_extension_legacynames_emptyisnull.sql` for `load_extension`, above.
 
 ### Usage
 The following is simple example that creates a table with two columns of integers.  It generates a theta sketch for the `data` column and then computes its estimate.
@@ -120,8 +124,28 @@ CREATE TABLE IF NOT EXISTS sketch_hashes(hash BIGINT);
 INSERT INTO sketch_input(data) VALUES ("doing"), ("some"), ("thetasketch"), ("stuff");
 INSERT INTO sketch_hashes(hash) SELECT theta_sketch_hash(data) hash FROM sketch_input;
 
-SELECT theta_sketch_get_estimate(theta_sketch_build_raw_agg(hash)) FROM sketch_hashes;
+SELECT theta_sketch_get_estimate(theta_sketch_build_by_hash_agg(hash)) FROM sketch_hashes;
 ```
+
+## Legacy Function Names and Behavior
+We've recently renamed the functions in this library to be consistent with those in the DataSketches Postgresql extension.  If your code uses our previous function naming conventions and you don't want to change them, you can install `load_extension_legacynames_emptyisnull.sql` to retain the same naming scheme and behavior (see Deployment to SingleStoreDB, above).
+
+The following table maps the old names to the new names.  Every old function has a new equivalent, but not vice-versa.
+
+| Type | Legacy Name      | New Name                       |
+|------|------------------|--------------------------------|
+| UDF  | sketch_anotb     | theta_sketch_a_not_b           |
+| UDAF | n/a              | theta_sketch_build_agg         |
+| UDAF | n/a              | theta_sketch_build_by_hash_agg |
+| UDF  | sketch_estimate  | theta_sketch_get_estimate      |
+| UDF  | n/a              | theta_sketch_hash              |
+| UDF  | sketch_intersect | theta_sketch_intersection      |
+| UDAF | n/a              | theta_sketch_intersection_agg  |
+| UDF  | sketch_to_string | theta_sketch_to_string         |
+| UDF  | sketch_union     | theta_sketch_union             |
+| UDAF | theta_sketch_agg | theta_sketch_union_agg         |
+
+Additionally, there has been a behavior change.  Since SingleStoreDB does not yet support passing `NULL`s to Wasm functions, the legacy behavior treats empty strings as `NULL`s.  This, of course, precludes the generation of a Theta Sketch hash from an actual empty string.  In the new version, the semantics are different:  empty strings are hashed normally, and there is no support for NULL values (yet).
 
 ## Additional Information
 To learn about the process of developing a Wasm UDF or TVF in more detail, please have a look at our [tutorial](https://singlestore-labs.github.io/singlestore-wasm-toolkit/html/Tutorial-Overview.html).
