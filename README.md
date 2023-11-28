@@ -17,21 +17,21 @@ This library provides the following User Defined Aggregates (UDAFs) and UDFs (Us
 
 ### `theta_sketch_build_raw_agg` (UDAF)
 - **Type**: Aggregate
-- **Syntax**: `THETA_SKETCH_BUILD_RAW_AGG(BLOB)`
-- **Arguments**: The column containing pre-computed hashes from which to create a theta sketch.  This column should *not* contain the blobs themselves.
+- **Syntax**: `THETA_SKETCH_BUILD_RAW_AGG(BIGINT)`
+- **Arguments**: The column containing pre-computed hashes (as `BIGINT`s) from which to create a theta sketch.  This column should *not* contain the blobs themselves.
 - **Return Type**: The theta sketch representation, as a `BLOB`.
 - **Description**: This is a UDAF that will generate a theta sketch from a column of hashes and return it as a serialized blob.  If it makes sense for your use case, this function can be used in conjunction with the `theta_sketch_hash` build a theta sketch from precomputed hashes.  Doing this allows the theta sketch generation to be decoupled from the hashing algorithm, providing significantly improved performance.  For example, you might generate a theta sketch hash each time a row is inserted and run this aggregate on the hash column instead of the raw data.
 
 ### `theta_sketch_intersection_agg` (UDAF)
 - **Type**: Aggregate
-- **Syntax**: `THETA_SKETCH_INTERSECTION_AGG(BLOB)`
+- **Syntax**: `THETA_SKETCH_INTERSECTION_AGG(SKETCH)`
 - **Arguments**: The column containing the raw data from which to create a theta sketch.
 - **Return Type**: The theta sketch representation, as a `BLOB`.
 - **Description**: This is a UDAF that will generate a theta sketch using the intersection operation against all rows in a column of data.  The sketch is returned as a serialized blob.
 
 ### `theta_sketch_union_agg` (UDAF)
 - **Type**: Aggregate
-- **Syntax**: `THETA_SKETCH_UNION_AGG(BLOB)`
+- **Syntax**: `THETA_SKETCH_UNION_AGG(SKETCH)`
 - **Arguments**: The column containing the raw data from which to create a theta sketch.
 - **Return Type**: The theta sketch representation, as a `BLOB`.
 - **Description**: This is a UDAF that will generate a theta sketch using the union operation against all rows in a column of data.  The sketch is returned as a serialized blob.
