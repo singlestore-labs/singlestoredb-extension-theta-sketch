@@ -101,7 +101,10 @@ ITERATE WITH sketch_handle_build_accum${SUFFIX}
 MERGE WITH sketch_handle_union_merge
 TERMINATE WITH sketch_handle_serialize
 SERIALIZE WITH sketch_handle_serialize
-DESERIALIZE WITH sketch_handle_deserialize;
+DESERIALIZE WITH sketch_handle_deserialize
+DESTROY WITH sketch_handle_destroy
+CLONE WITH sketch_handle_clone
+COPYMERGE WITH sketch_handle_union_copymerge;
 EOF
     fi
 
@@ -116,7 +119,10 @@ ITERATE WITH sketch_handle_build_accum_by_hash${SUFFIX}
 MERGE WITH sketch_handle_union_merge
 TERMINATE WITH sketch_handle_serialize
 SERIALIZE WITH sketch_handle_serialize
-DESERIALIZE WITH sketch_handle_deserialize;
+DESERIALIZE WITH sketch_handle_deserialize
+DESTROY WITH sketch_handle_destroy
+CLONE WITH sketch_handle_clone
+COPYMERGE WITH sketch_handle_union_copymerge;
 EOF
     fi
 
@@ -131,7 +137,10 @@ ITERATE WITH sketch_handle_union_accum${SUFFIX}
 MERGE WITH sketch_handle_union_merge
 TERMINATE WITH sketch_handle_serialize
 SERIALIZE WITH sketch_handle_serialize
-DESERIALIZE WITH sketch_handle_deserialize;
+DESERIALIZE WITH sketch_handle_deserialize
+DESTROY WITH sketch_handle_destroy
+CLONE WITH sketch_handle_clone
+COPYMERGE WITH sketch_handle_union_copymerge;
 EOF
     fi
 
@@ -146,7 +155,10 @@ ITERATE WITH sketch_handle_intersection_accum${SUFFIX}
 MERGE WITH sketch_handle_intersection_merge
 TERMINATE WITH sketch_handle_serialize
 SERIALIZE WITH sketch_handle_serialize
-DESERIALIZE WITH sketch_handle_deserialize;
+DESERIALIZE WITH sketch_handle_deserialize
+DESTROY WITH sketch_handle_destroy
+CLONE WITH sketch_handle_clone
+COPYMERGE WITH sketch_handle_intersection_copymerge;
 EOF
     fi
 }
