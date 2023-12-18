@@ -161,6 +161,16 @@ int32_t __wasm_export_extension_sketch_handle_init(void) {
   extension_state_t ret = extension_sketch_handle_init();
   return ret;
 }
+__attribute__((export_name("sketch-handle-destroy")))
+int32_t __wasm_export_extension_sketch_handle_destroy(int32_t arg) {
+  int32_t ret = extension_sketch_handle_destroy(arg);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-clone")))
+int32_t __wasm_export_extension_sketch_handle_clone(int32_t arg) {
+  extension_state_t ret = extension_sketch_handle_clone(arg);
+  return ret;
+}
 __attribute__((export_name("sketch-handle-build-accum")))
 int32_t __wasm_export_extension_sketch_handle_build_accum(int32_t arg, int32_t arg0, int32_t arg1) {
   extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
@@ -212,9 +222,19 @@ int32_t __wasm_export_extension_sketch_handle_union_merge(int32_t arg, int32_t a
   extension_state_t ret = extension_sketch_handle_union_merge(arg, arg0);
   return ret;
 }
+__attribute__((export_name("sketch-handle-union-copymerge")))
+int32_t __wasm_export_extension_sketch_handle_union_copymerge(int32_t arg, int32_t arg0) {
+  extension_state_t ret = extension_sketch_handle_union_copymerge(arg, arg0);
+  return ret;
+}
 __attribute__((export_name("sketch-handle-intersection-merge")))
 int32_t __wasm_export_extension_sketch_handle_intersection_merge(int32_t arg, int32_t arg0) {
   extension_state_t ret = extension_sketch_handle_intersection_merge(arg, arg0);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-intersection-copymerge")))
+int32_t __wasm_export_extension_sketch_handle_intersection_copymerge(int32_t arg, int32_t arg0) {
+  extension_state_t ret = extension_sketch_handle_intersection_copymerge(arg, arg0);
   return ret;
 }
 __attribute__((export_name("sketch-handle-serialize")))

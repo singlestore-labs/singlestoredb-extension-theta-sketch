@@ -35,6 +35,8 @@ extern "C"
   void extension_sketch_to_string(extension_list_u8_t *data, extension_string_t *ret0);
   void extension_sketch_to_string_emptyisnull(extension_list_u8_t *data, extension_string_t *ret0);
   extension_state_t extension_sketch_handle_init(void);
+  int32_t extension_sketch_handle_destroy(extension_state_t state);
+  extension_state_t extension_sketch_handle_clone(extension_state_t state);
   extension_state_t extension_sketch_handle_build_accum(extension_state_t state, extension_list_u8_t *input);
   extension_state_t extension_sketch_handle_build_accum_emptyisnull(extension_state_t state, extension_list_u8_t *input);
   extension_state_t extension_sketch_handle_build_accum_by_hash(extension_state_t state, uint64_t input);
@@ -44,7 +46,9 @@ extern "C"
   extension_state_t extension_sketch_handle_intersection_accum(extension_state_t state, extension_list_u8_t *input);
   extension_state_t extension_sketch_handle_intersection_accum_emptyisnull(extension_state_t state, extension_list_u8_t *input);
   extension_state_t extension_sketch_handle_union_merge(extension_state_t left, extension_state_t right);
+  extension_state_t extension_sketch_handle_union_copymerge(extension_state_t left, extension_state_t right);
   extension_state_t extension_sketch_handle_intersection_merge(extension_state_t left, extension_state_t right);
+  extension_state_t extension_sketch_handle_intersection_copymerge(extension_state_t left, extension_state_t right);
   void extension_sketch_handle_serialize(extension_state_t state, extension_list_u8_t *ret0);
   extension_state_t extension_sketch_handle_deserialize(extension_list_u8_t *data);
   #ifdef __cplusplus

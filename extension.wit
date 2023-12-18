@@ -37,10 +37,12 @@ sketch-to-string-emptyisnull: func(data: list<u8>) -> string
 //
 ///////////////////////////////////////////////////////////////////////////////
 
-// Initialization /////////////////////////////////////////////////////////////
+// Lifetime ///////////////////////////////////////////////////////////////////
 
 // Initializes a new aggregate sketch state
 sketch-handle-init: func() -> state
+sketch-handle-destroy: func(state: state) -> s32
+sketch-handle-clone: func(state: state) -> state
 
 // Accumulation ///////////////////////////////////////////////////////////////
 
@@ -66,9 +68,11 @@ sketch-handle-intersection-accum-emptyisnull: func(state: state, input: list<u8>
 
 // Merges two sketch states by UNION.
 sketch-handle-union-merge: func(left: state, right: state) -> state
+sketch-handle-union-copymerge: func(left: state, right: state) -> state
 
 // Merges two sketch states by INTERSECTION.
 sketch-handle-intersection-merge: func(left: state, right: state) -> state
+sketch-handle-intersection-copymerge: func(left: state, right: state) -> state
 
 // Serialization //////////////////////////////////////////////////////////////
 

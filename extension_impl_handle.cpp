@@ -208,10 +208,131 @@ theta_anotb(
             wrapped_compact_theta_sketch::wrap(buf2->ptr, buf2->len)));
 }
 
+static extension_state_t theta_union_merge(
+    extension_state_t left,
+    extension_state_t right,
+    bool copyOnly)
+{
+    if (!VALID_HANDLE(left) && !VALID_HANDLE(right))
+    {
+        return NO_HANDLE;
+    }
+
+    void* u = theta_union_new_default();
+    theta_data_set_type(u, UNION);
+    if (VALID_HANDLE(left))
+    {
+        auto lptr = theta_data_get_result(TO_PTR(left));
+        theta_union_update_with_sketch(u, lptr);
+        if (!copyOnly)
+        {
+            theta_sketch_delete(lptr);
+        }
+    }
+    if (VALID_HANDLE(right))
+    {
+        auto rptr = theta_data_get_result(TO_PTR(right));
+        theta_union_update_with_sketch(u, rptr);
+        if (!copyOnly)
+        {
+            theta_sketch_delete(rptr);
+        }
+    }
+
+    return TO_HND(u);
+}
+
+static extension_state_t theta_intersection_merge(
+    extension_state_t left,
+    extension_state_t right,
+    bool copyOnly)
+{
+    if (!VALID_HANDLE(left) && !VALID_HANDLE(right))
+    {
+        return NO_HANDLE;
+    }
+
+    void* x = theta_intersection_new_default();
+    theta_data_set_type(x, INTERSECTION);
+    if (VALID_HANDLE(left))
+    {
+        auto lptr = theta_data_get_result(TO_PTR(left));
+        theta_intersection_update_with_sketch(x, lptr);
+        if (!copyOnly)
+        {
+            theta_sketch_delete(lptr);
+        }
+    }
+    if (VALID_HANDLE(right))
+    {
+        auto rptr = theta_data_get_result(TO_PTR(right));
+        theta_intersection_update_with_sketch(x, rptr);
+        if (!copyOnly)
+        {
+            theta_sketch_delete(rptr);
+        }
+    }
+
+    return TO_HND(x);
+}
+
+///////////////////////////////////////////////////////////////////////////
+
 
 extension_state_t extension_sketch_handle_init()
 {
     return NO_HANDLE;
+}
+
+int32_t extension_sketch_handle_destroy(extension_state_t handle)
+{
+    if (handle != NO_HANDLE)
+    {
+        theta_sketch_delete(TO_PTR(handle));
+    }
+    return 0;
+}
+
+extension_state_t extension_sketch_handle_clone(extension_state_t handle)
+{
+    if (handle == NO_HANDLE)
+    {
+        return NO_HANDLE;
+    }
+    auto state = TO_PTR(handle);
+    switch (theta_data_get_type(state))
+    {
+        case MUTABLE_SKETCH:
+        {
+            auto clone = new update_theta_sketch(
+                *reinterpret_cast<update_theta_sketch*>(state));
+            return TO_HND(clone);
+        }
+
+        case IMMUTABLE_SKETCH:
+        {
+            auto clone = new compact_theta_sketch(
+                *reinterpret_cast<compact_theta_sketch*>(state));
+            return TO_HND(clone);
+        }
+
+        case UNION:
+        {
+            auto clone = theta_union_new_default();
+            theta_union_update_with_sketch(clone, state);
+            return TO_HND(clone);
+        }
+
+        case INTERSECTION:
+        {
+            auto clone = theta_intersection_new_default();
+            theta_intersection_update_with_sketch(clone, state);
+            return TO_HND(clone);
+        }
+
+        default:  // Shouldn't happen.
+            abort();
+    }
 }
 
 extension_state_t
@@ -354,27 +475,15 @@ extension_sketch_handle_union_merge(
     extension_state_t left,
     extension_state_t right)
 {
-    if (!VALID_HANDLE(left) && !VALID_HANDLE(right))
-    {
-        return NO_HANDLE;
-    }
+    return theta_union_merge(left, right, false);
+}
 
-    void* u = theta_union_new_default();
-    theta_data_set_type(u, UNION);
-    if (VALID_HANDLE(left))
-    {
-        auto lptr = theta_data_get_result(TO_PTR(left));
-        theta_union_update_with_sketch(u, lptr);
-        theta_sketch_delete(lptr);
-    }
-    if (VALID_HANDLE(right))
-    {
-        auto rptr = theta_data_get_result(TO_PTR(right));
-        theta_union_update_with_sketch(u, rptr);
-        theta_sketch_delete(rptr);
-    }
-
-    return TO_HND(u);
+extension_state_t
+extension_sketch_handle_union_copymerge(
+    extension_state_t left,
+    extension_state_t right)
+{
+    return theta_union_merge(left, right, true);
 }
 
 extension_state_t
@@ -382,27 +491,15 @@ extension_sketch_handle_intersection_merge(
     extension_state_t left,
     extension_state_t right)
 {
-    if (!VALID_HANDLE(left) && !VALID_HANDLE(right))
-    {
-        return NO_HANDLE;
-    }
+    return theta_intersection_merge(left, right, false);
+}
 
-    void* x = theta_intersection_new_default();
-    theta_data_set_type(x, INTERSECTION);
-    if (VALID_HANDLE(left))
-    {
-        auto lptr = theta_data_get_result(TO_PTR(left));
-        theta_intersection_update_with_sketch(x, lptr);
-        theta_sketch_delete(lptr);
-    }
-    if (VALID_HANDLE(right))
-    {
-        auto rptr = theta_data_get_result(TO_PTR(right));
-        theta_intersection_update_with_sketch(x, rptr);
-        theta_sketch_delete(rptr);
-    }
-
-    return TO_HND(x);
+extension_state_t
+extension_sketch_handle_intersection_copymerge(
+    extension_state_t left,
+    extension_state_t right)
+{
+    return theta_intersection_merge(left, right, true);
 }
 
 void
