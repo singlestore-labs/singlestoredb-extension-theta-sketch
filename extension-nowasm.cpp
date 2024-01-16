@@ -45,41 +45,74 @@ void extension_string_free(extension_string_t *ret) {
 
 __attribute__((aligned(4)))
 static uint8_t RET_AREA[8];
-__attribute__((export_name("sketch-estimate")))
-double __wasm_export_extension_sketch_estimate(ADDR arg, SIZE arg0) {
+__attribute__((export_name("sketch-get-estimate")))
+double __wasm_export_extension_sketch_get_estimate(ADDR arg, SIZE arg0) {
   extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
-  double ret = extension_sketch_estimate(&arg1);
+  double ret = extension_sketch_get_estimate(&arg1);
   return ret;
 }
-__attribute__((export_name("sketch-agg-init-handle")))
-HANDLE __wasm_export_extension_sketch_agg_init_handle(void) {
-  extension_state_t ret = extension_sketch_agg_init_handle();
-  return ret;
-}
-__attribute__((export_name("sketch-agg-update-handle")))
-HANDLE __wasm_export_extension_sketch_agg_update_handle(HANDLE arg, ADDR arg0, SIZE arg1) {
-  extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
-  extension_state_t ret = extension_sketch_agg_update_handle(arg, &arg2);
-  return ret;
-}
-__attribute__((export_name("sketch-agg-merge-handle")))
-HANDLE __wasm_export_extension_sketch_agg_merge_handle(HANDLE arg, HANDLE arg0) {
-  extension_state_t ret = extension_sketch_agg_merge_handle(arg, arg0);
-  return ret;
-}
-__attribute__((export_name("sketch-agg-serialize-handle")))
-ADDR __wasm_export_extension_sketch_agg_serialize_handle(HANDLE arg) {
+__attribute__((export_name("sketch-union")))
+ADDR __wasm_export_extension_sketch_union(ADDR arg, SIZE arg0, ADDR arg1, SIZE arg2) {
+  extension_list_u8_t arg3 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
+  extension_list_u8_t arg4 = (extension_list_u8_t) { (uint8_t*)(arg1), (size_t)(arg2) };
   extension_list_u8_t ret;
-  extension_sketch_agg_serialize_handle(arg, &ret);
+  extension_sketch_union(&arg3, &arg4, &ret);
+  ADDR ptr = (ADDR) &RET_AREA;
+  *((SIZE*)(ptr + sizeof(ADDR))) = (SIZE) (ret).len;
+  *((ADDR*)(ptr + 0)) = (ADDR) (ret).ptr;
+  return ptr;
+}
+__attribute__((export_name("sketch-handle-init")))
+HANDLE __wasm_export_extension_sketch_handle_init(void) {
+  extension_state_t ret = extension_sketch_handle_init();
+  return ret;
+}
+__attribute__((export_name("sketch-handle-destroy")))
+int32_t __wasm_export_extension_sketch_handle_destroy(HANDLE arg) {
+  int32_t ret = extension_sketch_handle_destroy(arg);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-clone")))
+HANDLE __wasm_export_extension_sketch_handle_clone(HANDLE arg) {
+  extension_state_t ret = extension_sketch_handle_clone(arg);
+  return ret;
+}
+
+__attribute__((export_name("sketch-handle-build-accum")))
+HANDLE __wasm_export_extension_sketch_handle_build_accum(HANDLE arg, ADDR arg0, SIZE arg1) {
+  extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
+  extension_state_t ret = extension_sketch_handle_build_accum(arg, &arg2);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-union-accum")))
+HANDLE __wasm_export_extension_sketch_handle_union_accum(HANDLE arg, ADDR arg0, SIZE arg1) {
+  extension_list_u8_t arg2 = (extension_list_u8_t) { (uint8_t*)(arg0), (size_t)(arg1) };
+  extension_state_t ret = extension_sketch_handle_union_accum(arg, &arg2);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-union-merge")))
+HANDLE __wasm_export_extension_sketch_handle_union_merge(HANDLE arg, HANDLE arg0) {
+  extension_state_t ret = extension_sketch_handle_union_merge(arg, arg0);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-union-copymerge")))
+HANDLE __wasm_export_extension_sketch_handle_union_copymerge(HANDLE arg, HANDLE arg0) {
+  extension_state_t ret = extension_sketch_handle_union_copymerge(arg, arg0);
+  return ret;
+}
+__attribute__((export_name("sketch-handle-serialize")))
+ADDR __wasm_export_extension_sketch_handle_serialize(HANDLE arg) {
+  extension_list_u8_t ret;
+  extension_sketch_handle_serialize(arg, &ret);
   ADDR ptr = (ADDR) &RET_AREA;
   *((ADDR*)(ptr + sizeof(ADDR))) = (ADDR) (ret).len;
   *((ADDR*)(ptr + 0)) = (ADDR) (ret).ptr;
   return ptr;
 }
-__attribute__((export_name("sketch-agg-deserialize-handle")))
-HANDLE __wasm_export_extension_sketch_agg_deserialize_handle(ADDR arg, SIZE arg0) {
+__attribute__((export_name("sketch-handle-deserialize")))
+HANDLE __wasm_export_extension_sketch_handle_deserialize(ADDR arg, SIZE arg0) {
   extension_list_u8_t arg1 = (extension_list_u8_t) { (uint8_t*)(arg), (size_t)(arg0) };
-  extension_state_t ret = extension_sketch_agg_deserialize_handle(&arg1);
+  extension_state_t ret = extension_sketch_handle_deserialize(&arg1);
   return ret;
 }
 __attribute__((export_name("sketch-to-string")))
@@ -92,3 +125,4 @@ ADDR __wasm_export_extension_sketch_to_string(ADDR arg, SIZE arg0) {
   *((ADDR*)(ptr + 0)) = (ADDR) (ret).ptr;
   return ptr;
 }
+
